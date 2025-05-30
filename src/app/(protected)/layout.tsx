@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { AppSidebar } from "./_components/app-sidebar";
 
-const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
+export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -12,6 +12,4 @@ const ProtectedLayout = ({ children }: { children: React.ReactNode }) => {
       </main>
     </SidebarProvider>
   );
-};
-
-export default ProtectedLayout;
+}

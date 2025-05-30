@@ -6,16 +6,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import ClinicForm from "./components/form";
+import ClinicForm from "./_components/form";
 
 const ClinicFormPage = () => {
   return (
     <div>
-      <Dialog open={true}>
+      <Dialog open>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Adicionar clinica</DialogTitle>
-            <DialogDescription></DialogDescription>
+            <DialogTitle>Adicionar clínica</DialogTitle>
+            <DialogDescription>
+              Adicione uma clínica para continuar.
+            </DialogDescription>
           </DialogHeader>
           <ClinicForm />
         </DialogContent>
@@ -23,4 +25,5 @@ const ClinicFormPage = () => {
     </div>
   );
 };
+
 export default ClinicFormPage;

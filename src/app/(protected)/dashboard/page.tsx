@@ -12,16 +12,14 @@ const DashboardPage = async () => {
   if (!session?.user) {
     redirect("/authentication");
   }
-
   if (!session.user.clinic) {
     redirect("/clinic-form");
   }
-
   return (
     <div>
       <h1>Dashboard</h1>
-      <p>Bem-vindo, {session?.user?.name}</p>
-      <p>{session?.user?.email}</p>
+      <h1>{session?.user?.name}</h1>
+      <h1>{session?.user?.email}</h1>
       <SignOutButton />
     </div>
   );

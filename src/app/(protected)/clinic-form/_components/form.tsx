@@ -35,14 +35,12 @@ const ClinicForm = () => {
   const onSubmit = async (data: z.infer<typeof clinicFormSchema>) => {
     try {
       await createClinic(data.name);
-      toast.success("Clínica criada com sucesso");
-      form.reset();
     } catch (error) {
       if (isRedirectError(error)) {
         return;
       }
       console.error(error);
-      toast.error("Erro ao criar clínica");
+      toast.error("Erro ao criar clínica.");
     }
   };
 
@@ -63,13 +61,13 @@ const ClinicForm = () => {
               </FormItem>
             )}
           />
+
           <DialogFooter>
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? (
+              {form.formState.isSubmitting && (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Criar clinica"
               )}
+              Criar clínica
             </Button>
           </DialogFooter>
         </form>

@@ -78,9 +78,9 @@ const UpsertDoctorForm = ({ doctor, onSuccess }: UpsertDoctorFormProps) => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: doctor?.name ?? "",
-      specialty: doctor?.speciality ?? "",
-      appointmentPrice: doctor?.appointmentPrice
-        ? doctor.appointmentPrice / 100
+      specialty: doctor?.specialty ?? "",
+      appointmentPrice: doctor?.appointmentPriceInCents
+        ? doctor.appointmentPriceInCents / 100
         : 0,
       availableFromWeekDay: doctor?.availableFromWeekDay?.toString() ?? "1",
       availableToWeekDay: doctor?.availableToWeekDay?.toString() ?? "5",
