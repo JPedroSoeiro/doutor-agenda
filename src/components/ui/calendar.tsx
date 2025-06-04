@@ -1,5 +1,3 @@
-"use client";
-
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { DayPicker } from "react-day-picker";
@@ -7,18 +5,25 @@ import { DayPicker } from "react-day-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
+  availableByDoctorMatcher?: (date: Date) => boolean;
+  unavailableByDoctorMatcher?: (date: Date) => boolean;
+};
+
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
+  availableByDoctorMatcher,
+  unavailableByDoctorMatcher,
   ...props
-}: React.ComponentProps<typeof DayPicker>) {
+}: CalendarProps) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row gap-2",
+        months: "flex flex-col sm:flex-row gap-2 ",
         month: "flex flex-col gap-4",
         caption: "flex justify-center pt-1 relative items-center w-full",
         caption_label: "text-sm font-medium",
@@ -57,15 +62,26 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
+        // Novas classes para disponibilidade do médico
         ...classNames,
       }}
+      modifiers={{
+        ...props.modifiers,
+        availableByDoctor: availableByDoctorMatcher || (() => false),
+        unavailableByDoctor: unavailableByDoctorMatcher || (() => false),
+      }}
+      modifiersClassNames={{
+        ...props.modifiersClassNames,
+        availableByDoctor: "day_available_by_doctor",
+        unavailableByDoctor: "day_unavailable_by_doctor",
+      }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
-        ),
+        Chevron: ({ orientation, ...rest }) =>
+          orientation === "left" ? (
+            <ChevronLeft className="size-4" {...rest} />
+          ) : (
+            <ChevronRight className="size-4" {...rest} />
+          ),
       }}
       {...props}
     />
