@@ -3,7 +3,7 @@
 import { CalendarDays, Clock, Stethoscope, User, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,6 +27,11 @@ import { Separator } from "@/components/ui/separator";
 
 import { createBooking } from "./actions";
 
+interface Clinic {
+  id: string;
+  name: string;
+}
+
 interface Doctor {
   id: string;
   name: string;
@@ -45,6 +50,8 @@ interface TimeSlot {
 
 export default function BookingPage() {
   const router = useRouter();
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>();
@@ -60,35 +67,51 @@ export default function BookingPage() {
     sex: "",
   });
 
-  // Fetch doctors on component mount
+  // Fetch clinics on component mount
   useEffect(() => {
-    fetchDoctors();
+    const fetchClinics = async () => {
+      try {
+        const response = await fetch("/api/auth/clinics");
+        const data = await response.json();
+        setClinics(data);
+      } catch (error) {
+        console.error("Erro ao carregar clínicas:", error);
+        setError("Erro ao carregar clínicas. Tente novamente.");
+      }
+    };
+
+    fetchClinics();
   }, []);
 
-  // Generate time slots when doctor or date changes
+  // Fetch doctors when a clinic is selected
   useEffect(() => {
-    if (selectedDoctor && selectedDate) {
-      generateTimeSlots();
-    }
-  }, [selectedDoctor, selectedDate]);
+    const fetchDoctors = async () => {
+      if (!selectedClinic) return;
 
-  const fetchDoctors = async () => {
-    try {
-      const response = await fetch("/api/doctors");
-      const data = await response.json();
-      setDoctors(data);
+      try {
+        const response = await fetch(
+          `/api/doctors?clinicId=${selectedClinic.id}`,
+        );
+        const data = await response.json();
+        setDoctors(data);
 
-      // If only one doctor, pre-select them
-      if (data.length === 1) {
-        setSelectedDoctor(data[0]);
+        if (data.length === 1) {
+          setSelectedDoctor(data[0]);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar médicos:", error);
+        setError("Erro ao carregar médicos. Tente novamente.");
       }
-    } catch (error) {
-      console.error("Erro ao carregar médicos:", error);
-      setError("Erro ao carregar médicos. Tente novamente.");
-    }
-  };
+    };
 
-  const generateTimeSlots = async () => {
+    fetchDoctors();
+    // Clear doctor, date and time when clinic changes
+    setSelectedDoctor(null);
+    setSelectedDate(undefined);
+    setSelectedTime("");
+  }, [selectedClinic]);
+
+  const generateTimeSlots = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
 
     try {
@@ -98,6 +121,7 @@ export default function BookingPage() {
         body: JSON.stringify({
           doctorId: selectedDoctor.id,
           date: selectedDate.toISOString().split("T")[0],
+          clinicId: selectedClinic?.id, // Add clinicId here
         }),
       });
       const slots = await response.json();
@@ -107,7 +131,14 @@ export default function BookingPage() {
       setError("Erro ao carregar horários disponíveis.");
       console.error("Erro ao carregar horários disponíveis.", error);
     }
-  };
+  }, [selectedDoctor, selectedDate, selectedClinic]); // Add selectedClinic as dependency
+
+  // Generate time slots when doctor or date changes
+  useEffect(() => {
+    if (selectedDoctor && selectedDate) {
+      generateTimeSlots();
+    }
+  }, [selectedDoctor, selectedDate, generateTimeSlots]);
 
   const isDateAvailable = (date: Date) => {
     if (!selectedDoctor) return false;
@@ -137,6 +168,7 @@ export default function BookingPage() {
     if (!/^\d+$/.test(formData.phoneNumber.replace(/\D/g, "")))
       return "Telefone deve conter apenas números";
     if (!formData.sex) return "Sexo é obrigatório";
+    if (!selectedClinic) return "Selecione uma clínica"; // Require clinic selection
     if (!selectedDoctor) return "Selecione um médico";
     if (!selectedDate) return "Selecione uma data";
     if (!selectedTime) return "Selecione um horário";
@@ -267,7 +299,6 @@ export default function BookingPage() {
 
           <Separator />
 
-          {/* Appointment Information Section */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -275,49 +306,77 @@ export default function BookingPage() {
                 Agendamento da Consulta
               </CardTitle>
               <CardDescription>
-                Escolha o médico, data e horário para sua consulta
+                Escolha o profissional, data e horário para sua consulta
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Doctor Selection */}
+              {/* Clinic Selection */} {/* ADD THIS SECTION */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Stethoscope className="h-4 w-4" />
-                  Médico *
+                  Clínica *
                 </Label>
                 <Select
-                  value={selectedDoctor?.id || ""}
+                  value={selectedClinic?.id || ""}
                   onValueChange={(value) => {
-                    const doctor = doctors.find((d) => d.id === value);
-                    setSelectedDoctor(doctor || null);
-                    setSelectedDate(undefined);
-                    setSelectedTime("");
+                    const clinic = clinics.find((c) => c.id === value);
+                    setSelectedClinic(clinic || null);
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um médico" />
+                    <SelectValue placeholder="Selecione uma clínica" />
                   </SelectTrigger>
                   <SelectContent>
-                    {doctors.map((doctor) => (
-                      <SelectItem key={doctor.id} value={doctor.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{doctor.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {doctor.specialty}
-                          </span>
-                        </div>
+                    {clinics.map((clinic) => (
+                      <SelectItem key={clinic.id} value={clinic.id}>
+                        {clinic.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedDoctor && (
-                  <p className="text-sm text-gray-600">
-                    Valor da consulta: R${" "}
-                    {(selectedDoctor.appointmentPriceInCents / 100).toFixed(2)}
-                  </p>
-                )}
               </div>
-
+              {/* Doctor Selection */}
+              {selectedClinic && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Stethoscope className="h-4 w-4" />
+                    Médico *
+                  </Label>
+                  <Select
+                    value={selectedDoctor?.id || ""}
+                    onValueChange={(value) => {
+                      const doctor = doctors.find((d) => d.id === value);
+                      setSelectedDoctor(doctor || null);
+                      setSelectedDate(undefined);
+                      setSelectedTime("");
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um profissional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{doctor.name}</span>
+                            <span className="text-sm text-gray-500">
+                              {doctor.specialty}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedDoctor && (
+                    <p className="text-sm text-gray-600">
+                      Valor da consulta: R$
+                      {(selectedDoctor.appointmentPriceInCents / 100).toFixed(
+                        2,
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
               {/* Date Selection */}
               {selectedDoctor && (
                 <div className="space-y-2">
@@ -333,7 +392,6 @@ export default function BookingPage() {
                   </div>
                 </div>
               )}
-
               {/* Time Selection */}
               {selectedDoctor && selectedDate && availableSlots.length > 0 && (
                 <div className="space-y-2">
@@ -359,7 +417,6 @@ export default function BookingPage() {
                   </div>
                 </div>
               )}
-
               {selectedDoctor &&
                 selectedDate &&
                 availableSlots.length === 0 && (

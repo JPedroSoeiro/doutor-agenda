@@ -43,6 +43,7 @@ export enum MedicalSpecialty {
   PATOLOGIA_CLINICA = "Patologia Clínica/Medicina Laboratorial",
   PEDIATRIA = "Pediatria",
   PNEUMOLOGIA = "Pneumologia",
+  PSICANALISTA = "Psicanalista",
   PSIQUIATRIA = "Psiquiatria",
   RADIOLOGIA = "Radiologia e Diagnóstico por Imagem",
   RADIOTERAPIA = "Radioterapia",

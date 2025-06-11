@@ -1,5 +1,7 @@
-import { Button } from "@/components/ui/button";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return <Button>Bootcamp!</Button>;
+export default function HomePage() {
+  redirect("/public-booking");
+
+  return null;
 }

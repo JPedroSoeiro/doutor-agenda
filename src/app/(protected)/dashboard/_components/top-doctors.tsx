@@ -20,7 +20,7 @@ export default function TopDoctors({ doctors }: TopDoctorsProps) {
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Stethoscope className="text-muted-foreground" />
-            <CardTitle className="text-base">Médicos</CardTitle>
+            <CardTitle className="text-base">Profissional</CardTitle>
           </div>
         </div>
 

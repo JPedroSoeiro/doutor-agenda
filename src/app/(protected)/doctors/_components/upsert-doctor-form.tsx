@@ -134,11 +134,13 @@ const UpsertDoctorForm = ({
   return (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>{doctor ? doctor.name : "Adicionar médico"}</DialogTitle>
+        <DialogTitle>
+          {doctor ? doctor.name : "Adicionar profissional"}
+        </DialogTitle>
         <DialogDescription>
           {doctor
-            ? "Edite as informações desse médico."
-            : "Adicione um novo médico."}
+            ? "Edite as informações desse profissional."
+            : "Adicione um novo profissional."}
         </DialogDescription>
       </DialogHeader>
       <Form {...form}>

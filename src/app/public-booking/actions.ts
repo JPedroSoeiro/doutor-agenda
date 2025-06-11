@@ -26,7 +26,6 @@ interface BookingData {
 export async function createBooking(data: BookingData) {
   try {
     const result = await db.transaction(async (tx) => {
-      // 1. Fetch doctor and validate
       const doctor = await tx
         .select({
           id: doctorsTable.id,
@@ -39,12 +38,11 @@ export async function createBooking(data: BookingData) {
         .limit(1);
 
       if (!doctor.length) {
-        throw new Error("Médico não encontrado");
+        throw new Error("Profissional não encontrado");
       }
 
       const selectedDoctor = doctor[0];
 
-      // 2. Check if appointment slot is still available
       const existingAppointment = await tx
         .select({ id: appointmentsTable.id })
         .from(appointmentsTable)
