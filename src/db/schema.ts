@@ -10,6 +10,11 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export const appointmentModalityEnum = pgEnum("appointment_modality", [
+  "remoto",
+  "presencial",
+]);
+
 export const usersTable = pgTable("users", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -188,6 +193,7 @@ export const appointmentsTable = pgTable("appointments", {
     .references(() => doctorsTable.id, { onDelete: "cascade" }),
   status: appointmentStatusEnum("status").default("scheduled").notNull(),
   notes: text("notes"),
+  modality: appointmentModalityEnum("modality").notNull(), // <<< Agora este nome será encontrado
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()

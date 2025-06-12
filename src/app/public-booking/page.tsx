@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { CalendarDays, Clock, Stethoscope, User, UserPlus } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { formatPhoneNumber } from "@/helpers/formatters";
 
 import { createBooking } from "./actions";
 
@@ -48,6 +50,8 @@ interface TimeSlot {
   available: boolean;
 }
 
+// Função de formatação de telefone (coloque-a fora do componente ou em src/helpers/formatters.ts)
+
 export default function BookingPage() {
   const router = useRouter();
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -65,17 +69,17 @@ export default function BookingPage() {
     email: "",
     phoneNumber: "",
     sex: "",
+    modality: "",
   });
 
-  // Fetch clinics on component mount
   useEffect(() => {
     const fetchClinics = async () => {
       try {
-        const response = await fetch("/api/auth/clinics");
+        const response = await fetch("/api/clinics");
         const data = await response.json();
         setClinics(data);
-      } catch (error) {
-        console.error("Erro ao carregar clínicas:", error);
+      } catch (err: any) {
+        console.error("Erro ao carregar clínicas:", err);
         setError("Erro ao carregar clínicas. Tente novamente.");
       }
     };
@@ -83,7 +87,6 @@ export default function BookingPage() {
     fetchClinics();
   }, []);
 
-  // Fetch doctors when a clinic is selected
   useEffect(() => {
     const fetchDoctors = async () => {
       if (!selectedClinic) return;
@@ -98,14 +101,13 @@ export default function BookingPage() {
         if (data.length === 1) {
           setSelectedDoctor(data[0]);
         }
-      } catch (error) {
-        console.error("Erro ao carregar médicos:", error);
+      } catch (err: any) {
+        console.error("Erro ao carregar médicos:", err);
         setError("Erro ao carregar médicos. Tente novamente.");
       }
     };
 
     fetchDoctors();
-    // Clear doctor, date and time when clinic changes
     setSelectedDoctor(null);
     setSelectedDate(undefined);
     setSelectedTime("");
@@ -121,19 +123,18 @@ export default function BookingPage() {
         body: JSON.stringify({
           doctorId: selectedDoctor.id,
           date: selectedDate.toISOString().split("T")[0],
-          clinicId: selectedClinic?.id, // Add clinicId here
+          clinicId: selectedClinic?.id,
         }),
       });
       const slots = await response.json();
       setAvailableSlots(slots);
-      setSelectedTime(""); // Reset selected time
-    } catch (error) {
+      setSelectedTime("");
+    } catch (err: any) {
       setError("Erro ao carregar horários disponíveis.");
-      console.error("Erro ao carregar horários disponíveis.", error);
+      console.error("Erro ao carregar horários disponíveis.", err);
     }
-  }, [selectedDoctor, selectedDate, selectedClinic]); // Add selectedClinic as dependency
+  }, [selectedDoctor, selectedDate, selectedClinic]);
 
-  // Generate time slots when doctor or date changes
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
       generateTimeSlots();
@@ -155,8 +156,13 @@ export default function BookingPage() {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    setError(""); // Clear error when user types
+    if (field === "phoneNumber") {
+      const cleanedValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [field]: cleanedValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+    setError("");
   };
 
   const validateForm = () => {
@@ -168,7 +174,8 @@ export default function BookingPage() {
     if (!/^\d+$/.test(formData.phoneNumber.replace(/\D/g, "")))
       return "Telefone deve conter apenas números";
     if (!formData.sex) return "Sexo é obrigatório";
-    if (!selectedClinic) return "Selecione uma clínica"; // Require clinic selection
+    if (!formData.modality) return "O tipo de consulta é obrigatório";
+    if (!selectedClinic) return "Selecione uma clínica";
     if (!selectedDoctor) return "Selecione um médico";
     if (!selectedDate) return "Selecione uma data";
     if (!selectedTime) return "Selecione um horário";
@@ -200,11 +207,12 @@ export default function BookingPage() {
           doctorId: selectedDoctor!.id,
           date: selectedDate!.toISOString().split("T")[0],
           time: selectedTime,
+          modality: formData.modality as "remoto" | "presencial",
         },
       });
 
       if (result.success) {
-        router.push(`/booking/confirmation?id=${result.appointmentId}`);
+        router.push(`/public-booking/confirmation?id=${result.appointmentId}`);
       } else {
         setError(result.error || "Erro ao criar agendamento. Tente novamente.");
       }
@@ -229,7 +237,6 @@ export default function BookingPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Patient Information Section */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -270,7 +277,7 @@ export default function BookingPage() {
                   <Label htmlFor="phone">Telefone *</Label>
                   <Input
                     id="phone"
-                    value={formData.phoneNumber}
+                    value={formatPhoneNumber(formData.phoneNumber)}
                     onChange={(e) =>
                       handleInputChange("phoneNumber", e.target.value)
                     }
@@ -294,11 +301,29 @@ export default function BookingPage() {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="modality">Tipo de Consulta *</Label>
+                <Select
+                  value={formData.modality}
+                  onValueChange={(value) =>
+                    handleInputChange("modality", value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="presencial">Presencial</SelectItem>
+                    <SelectItem value="remoto">Remoto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
 
           <Separator />
 
+          {/* Seção de Agendamento da Consulta */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -310,7 +335,7 @@ export default function BookingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Clinic Selection */} {/* ADD THIS SECTION */}
+              {/* Seleção da Clínica */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Stethoscope className="h-4 w-4" />
@@ -321,6 +346,7 @@ export default function BookingPage() {
                   onValueChange={(value) => {
                     const clinic = clinics.find((c) => c.id === value);
                     setSelectedClinic(clinic || null);
+                    // O useEffect para fetchDoctors já limpa médico, data e hora
                   }}
                 >
                   <SelectTrigger>
@@ -335,7 +361,8 @@ export default function BookingPage() {
                   </SelectContent>
                 </Select>
               </div>
-              {/* Doctor Selection */}
+
+              {/* Seleção do Médico (mostrado apenas se uma clínica for selecionada) */}
               {selectedClinic && (
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
@@ -377,7 +404,8 @@ export default function BookingPage() {
                   )}
                 </div>
               )}
-              {/* Date Selection */}
+
+              {/* Seleção da Data (mostrado apenas se um médico for selecionado) */}
               {selectedDoctor && (
                 <div className="space-y-2">
                   <Label>Data da Consulta *</Label>
@@ -392,7 +420,8 @@ export default function BookingPage() {
                   </div>
                 </div>
               )}
-              {/* Time Selection */}
+
+              {/* Seleção do Horário (mostrado apenas se médico e data forem selecionados e houver slots) */}
               {selectedDoctor && selectedDate && availableSlots.length > 0 && (
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
@@ -417,6 +446,7 @@ export default function BookingPage() {
                   </div>
                 </div>
               )}
+
               {selectedDoctor &&
                 selectedDate &&
                 availableSlots.length === 0 && (
@@ -427,14 +457,14 @@ export default function BookingPage() {
             </CardContent>
           </Card>
 
-          {/* Error Message */}
+          {/* Mensagem de Erro para o Usuário */}
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-4">
               <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
 
-          {/* Submit Button */}
+          {/* Botão de Envio */}
           <div className="flex justify-center">
             <Button
               type="submit"

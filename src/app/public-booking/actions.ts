@@ -16,6 +16,7 @@ interface AppointmentData {
   doctorId: string;
   date: string;
   time: string;
+  modality: "remoto" | "presencial";
 }
 
 interface BookingData {
@@ -104,6 +105,9 @@ export async function createBooking(data: BookingData) {
           date: appointmentDateTime,
           appointmentPriceInCents: selectedDoctor.appointmentPriceInCents,
           status: "scheduled",
+          // <<< ADICIONE ESTA LINHA AQUI >>>
+          modality: data.appointment.modality, // Agora você passa o valor da modalidade
+          // <<< FIM DA LINHA ADICIONADA >>>
           createdAt: new Date(),
           updatedAt: new Date(),
         })

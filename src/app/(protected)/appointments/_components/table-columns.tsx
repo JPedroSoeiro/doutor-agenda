@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import { appointmentsTable } from "@/db/schema";
+import { appointmentsTable } from "@/db/schema"; // Importa a tabela de agendamentos
 
 import AppointmentsTableActions from "./table-actions";
 
@@ -54,6 +54,21 @@ export const appointmentsTableColumns: ColumnDef<AppointmentWithRelations>[] = [
     accessorKey: "doctor.specialty",
     header: "Especialidade",
   },
+  // <<< NOVO CAMPO: MODALIDADE >>>
+  {
+    id: "modality", // ID único para a coluna
+    accessorKey: "modality", // Acessa diretamente a propriedade 'modality' do objeto appointment
+    header: "Modalidade", // Título da coluna na tabela
+    cell: (params) => {
+      const appointment = params.row.original;
+      // Capitaliza a primeira letra para melhor apresentação
+      return (
+        appointment.modality.charAt(0).toUpperCase() +
+        appointment.modality.slice(1)
+      );
+    },
+  },
+  // <<< FIM DO NOVO CAMPO >>>
   {
     id: "price",
     accessorKey: "appointmentPriceInCents",

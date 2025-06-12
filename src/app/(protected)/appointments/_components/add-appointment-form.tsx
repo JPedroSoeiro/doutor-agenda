@@ -48,6 +48,13 @@ import {
 import { doctorsTable, patientsTable } from "@/db/schema";
 import { cn } from "@/lib/utils";
 
+// >>> CORREÇÃO: Definir um Enum TypeScript para a modalidade (se não estiver já em src/db/schema.ts) <<<
+// Se já estiver em src/db/schema.ts, importe-o de lá.
+enum ModalityEnum {
+  Presencial = "presencial",
+  Remoto = "remoto",
+}
+
 const formSchema = z.object({
   patientId: z.string().min(1, {
     message: "Paciente é obrigatório.",
@@ -64,6 +71,11 @@ const formSchema = z.object({
   time: z.string().min(1, {
     message: "Horário é obrigatório.",
   }),
+  modality: z
+    .nativeEnum(ModalityEnum, {
+      message: "A modalidade da consulta é obrigatória.", // Mensagem de erro para quando não for um enum válido
+    })
+    .optional(), // Permite que seja undefined inicialmente
 });
 
 interface AddAppointmentFormProps {
@@ -88,6 +100,7 @@ const AddAppointmentForm = ({
       appointmentPrice: 0,
       date: undefined,
       time: "",
+      modality: undefined, // Valor padrão é undefined
     },
   });
 
@@ -105,7 +118,6 @@ const AddAppointmentForm = ({
     enabled: !!selectedDate && !!selectedDoctorId,
   });
 
-  // Atualizar o preço quando o médico for selecionado
   useEffect(() => {
     if (selectedDoctorId) {
       const selectedDoctor = doctors.find(
@@ -128,6 +140,7 @@ const AddAppointmentForm = ({
         appointmentPrice: 0,
         date: undefined,
         time: "",
+        modality: undefined,
       });
     }
   }, [isOpen, form]);
@@ -137,15 +150,27 @@ const AddAppointmentForm = ({
       toast.success("Agendamento criado com sucesso.");
       onSuccess?.();
     },
-    onError: () => {
-      toast.error("Erro ao criar agendamento.");
+    onError: (error) => {
+      console.error("Erro ao criar agendamento na action:", error);
+
+      const errorMessage =
+        error?.error?.serverError || "Erro ao criar agendamento.";
+      toast.error(errorMessage);
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    if (values.modality === undefined) {
+      form.setError("modality", {
+        message: "A modalidade da consulta é obrigatória.",
+      });
+      return;
+    }
+
     createAppointmentAction.execute({
       ...values,
       appointmentPriceInCents: values.appointmentPrice * 100,
+      modality: values.modality,
     });
   };
 
@@ -156,7 +181,10 @@ const AddAppointmentForm = ({
     );
     if (!selectedDoctor) return false;
     const dayOfWeek = date.getDay();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return (
+      date >= today &&
       dayOfWeek >= selectedDoctor?.availableFromWeekDay &&
       dayOfWeek <= selectedDoctor?.availableToWeekDay
     );
@@ -207,14 +235,14 @@ const AddAppointmentForm = ({
             name="doctorId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Médico</FormLabel>
+                <FormLabel>Profissional</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione um médico" />
+                      <SelectValue placeholder="Selecione um profissional" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -257,6 +285,35 @@ const AddAppointmentForm = ({
 
           <FormField
             control={form.control}
+            name="modality"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Modalidade</FormLabel>
+                <Select
+                  onValueChange={(value) =>
+                    field.onChange(value as ModalityEnum | undefined)
+                  } // Cast para o Enum ou undefined
+                  value={field.value || undefined} // Valor inicial é undefined para o SelectValue
+                >
+                  <FormControl>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione a modalidade" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={ModalityEnum.Presencial}>
+                      Presencial
+                    </SelectItem>
+                    <SelectItem value={ModalityEnum.Remoto}>Remoto</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
@@ -285,7 +342,10 @@ const AddAppointmentForm = ({
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                        form.setValue("time", ""); // Limpa o horário ao mudar a data
+                      }}
                       disabled={(date) =>
                         date < new Date() || !isDateAvailable(date)
                       }
@@ -306,7 +366,7 @@ const AddAppointmentForm = ({
                 <FormLabel>Horário</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value} // Usa 'value' para controle total do React Hook Form
                   disabled={!isDateTimeEnabled || !selectedDate}
                 >
                   <FormControl>

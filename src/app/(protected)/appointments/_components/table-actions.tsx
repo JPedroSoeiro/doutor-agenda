@@ -53,8 +53,9 @@ const AppointmentsTableActions = ({
     onSuccess: () => {
       toast.success("Agendamento deletado com sucesso.");
     },
-    onError: () => {
-      toast.error("Erro ao deletar agendamento.");
+    onError: (error) => {
+      console.error("Erro ao deletar agendamento:", error);
+      toast.error(error?.error?.serverError || "Erro ao deletar agendamento.");
     },
   });
 
@@ -65,7 +66,9 @@ const AppointmentsTableActions = ({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
+      {/* 1. DropdownMenuTrigger com asChild para não renderizar um botão extra */}
+      <DropdownMenuTrigger asChild>
+        {/* O Button do Shadcn renderiza o <button> real, recebendo as props do Trigger */}
         <Button variant="ghost" size="icon">
           <MoreVerticalIcon className="h-4 w-4" />
         </Button>
@@ -74,9 +77,13 @@ const AppointmentsTableActions = ({
         <DropdownMenuLabel>{appointment.patient.name}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <AlertDialog>
+          {/* 2. AlertDialogTrigger com asChild para passar as props para o DropdownMenuItem */}
+          {/* O DropdownMenuItem também renderiza um <button> (ou similar) */}
           <AlertDialogTrigger asChild>
+            {/* O onSelect aqui previne que o DropdownMenu feche imediatamente quando o AlertDialog abre */}
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <TrashIcon />
+              <TrashIcon className="mr-2 h-4 w-4" />{" "}
+              {/* Ícone para "Excluir" */}
               Excluir
             </DropdownMenuItem>
           </AlertDialogTrigger>
@@ -92,8 +99,12 @@ const AppointmentsTableActions = ({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteAppointmentClick}>
-                Deletar
+              {/* O botão "Deletar" aqui não tem asChild porque é um botão final na modal */}
+              <AlertDialogAction
+                onClick={handleDeleteAppointmentClick}
+                disabled={deleteAppointmentAction.isPending}
+              >
+                {deleteAppointmentAction.isPending ? "Deletando..." : "Deletar"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
