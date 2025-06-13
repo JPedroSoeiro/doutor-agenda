@@ -1,3 +1,4 @@
+// src/app/public-booking/actions.ts
 "use server";
 
 import { and, eq } from "drizzle-orm";
@@ -27,6 +28,7 @@ interface BookingData {
 export async function createBooking(data: BookingData) {
   try {
     const result = await db.transaction(async (tx) => {
+      // 1. Fetch doctor and validate (Nenhuma alteração aqui)
       const doctor = await tx
         .select({
           id: doctorsTable.id,
@@ -44,6 +46,7 @@ export async function createBooking(data: BookingData) {
 
       const selectedDoctor = doctor[0];
 
+      // 2. Check if appointment slot is still available (Nenhuma alteração aqui)
       const existingAppointment = await tx
         .select({ id: appointmentsTable.id })
         .from(appointmentsTable)
@@ -62,36 +65,45 @@ export async function createBooking(data: BookingData) {
         throw new Error("Este horário não está mais disponível");
       }
 
-      // 3. Check if patient already exists (by email)
-      const existingPatient = await tx
+      // >>> ALTERAÇÃO PRINCIPAL: REUTILIZAR PACIENTE OU CRIAR NOVO <<<
+      let patientIdToUse: string;
+
+      // Verifica se o paciente já existe pelo email
+      const existingPatientRecords = await tx
         .select({ id: patientsTable.id })
         .from(patientsTable)
         .where(eq(patientsTable.email, data.patient.email))
-        .limit(1);
+        .limit(1); // Limita a 1, pois queremos apenas saber se existe
 
-      if (existingPatient.length > 0) {
-        throw new Error("Já existe um paciente cadastrado com este email");
+      if (existingPatientRecords.length > 0) {
+        // Se o paciente existe, reutiliza o ID
+        patientIdToUse = existingPatientRecords[0].id;
+        // Opcional: Se quiser atualizar o nome/telefone/sexo do paciente existente,
+        // você faria um tx.update(patientsTable).set({...}).where(...) aqui.
+        // Por enquanto, vamos apenas reutilizar o ID.
+      } else {
+        // Se o paciente NÃO existe, cria um novo
+        const newPatient = await tx
+          .insert(patientsTable)
+          .values({
+            name: data.patient.name,
+            email: data.patient.email,
+            phoneNumber: data.patient.phoneNumber,
+            sex: data.patient.sex,
+            clinicId: selectedDoctor.clinicId, // Associa à clínica do médico
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning({ id: patientsTable.id });
+
+        if (!newPatient.length) {
+          throw new Error("Erro ao criar paciente");
+        }
+        patientIdToUse = newPatient[0].id;
       }
+      // <<< FIM DA ALTERAÇÃO PRINCIPAL >>>
 
-      // 4. Create new patient
-      const newPatient = await tx
-        .insert(patientsTable)
-        .values({
-          name: data.patient.name,
-          email: data.patient.email,
-          phoneNumber: data.patient.phoneNumber,
-          sex: data.patient.sex,
-          clinicId: selectedDoctor.clinicId,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning({ id: patientsTable.id });
-
-      if (!newPatient.length) {
-        throw new Error("Erro ao criar paciente");
-      }
-
-      // 5. Create appointment
+      // 5. Create appointment (agora usando patientIdToUse)
       const appointmentDateTime = new Date(
         `${data.appointment.date}T${data.appointment.time}:00`,
       );
@@ -99,15 +111,13 @@ export async function createBooking(data: BookingData) {
       const newAppointment = await tx
         .insert(appointmentsTable)
         .values({
-          patientId: newPatient[0].id,
+          patientId: patientIdToUse, // <<< Usa o ID do paciente (existente ou novo)
           doctorId: selectedDoctor.id,
           clinicId: selectedDoctor.clinicId,
           date: appointmentDateTime,
           appointmentPriceInCents: selectedDoctor.appointmentPriceInCents,
           status: "scheduled",
-          // <<< ADICIONE ESTA LINHA AQUI >>>
-          modality: data.appointment.modality, // Agora você passa o valor da modalidade
-          // <<< FIM DA LINHA ADICIONADA >>>
+          modality: data.appointment.modality,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -118,7 +128,7 @@ export async function createBooking(data: BookingData) {
       }
 
       return {
-        patientId: newPatient[0].id,
+        patientId: patientIdToUse,
         appointmentId: newAppointment[0].id,
         doctorName: selectedDoctor.name,
       };
