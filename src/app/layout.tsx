@@ -1,3 +1,5 @@
+// src/app/layout.tsx
+
 import "./globals.css";
 
 import type { Metadata } from "next";
@@ -28,7 +30,7 @@ export default function RootLayout({
         <ReactQueryProvider>
           <NuqsAdapter>{children}</NuqsAdapter>
         </ReactQueryProvider>
-        <Toaster position="bottom-center" richColors theme="light" />
+        <Toaster position="bottom-left" richColors theme="light" />
       </body>
     </html>
   );

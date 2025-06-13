@@ -1,10 +1,16 @@
+// src/app/public-booking/confirmation/page.tsx
 "use client";
 
-import { eq } from "drizzle-orm";
+import { useQuery } from "@tanstack/react-query";
 import { Calendar, CheckCircle, Clock, Stethoscope, User } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation"; // Este import está correto
 import { Suspense } from "react";
 
+import {
+  AppointmentDetails,
+  getAppointmentDetailsAction,
+} from "@/actions/get-appointment-details";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,55 +19,77 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { db } from "@/db/index";
-import { appointmentsTable, doctorsTable, patientsTable } from "@/db/schema";
 
-interface ConfirmationPageProps {
-  searchParams: { id?: string };
-}
-
-async function getAppointmentDetails(appointmentId: string) {
-  try {
-    const appointment = await db
-      .select({
-        id: appointmentsTable.id,
-        date: appointmentsTable.date,
-        appointmentPriceInCents: appointmentsTable.appointmentPriceInCents,
-        patientName: patientsTable.name,
-        patientEmail: patientsTable.email,
-        doctorName: doctorsTable.name,
-        doctorSpecialty: doctorsTable.specialty,
-      })
-      .from(appointmentsTable)
-      .innerJoin(
-        patientsTable,
-        eq(appointmentsTable.patientId, patientsTable.id),
-      )
-      .innerJoin(doctorsTable, eq(appointmentsTable.doctorId, doctorsTable.id))
-      .where(eq(appointmentsTable.id, appointmentId))
-      .limit(1);
-
-    return appointment[0] || null;
-  } catch (error) {
-    console.error("Error fetching appointment:", error);
-    return null;
-  }
-}
+// >>> REMOVIDO: A interface ConfirmationPageProps não é mais necessária <<<
+// interface ConfirmationPageProps {
+//   searchParams: { id?: string } // Linha que foi removida da interface
+// }
 
 function ConfirmationContent({ appointmentId }: { appointmentId: string }) {
   return (
-    <Suspense fallback={<div>Carregando...</div>}>
-      <ConfirmationDetails appointmentId={appointmentId} />
+    <Suspense fallback={<div>Carregando detalhes do agendamento...</div>}>
+      <ConfirmationDetailsClient appointmentId={appointmentId} />
     </Suspense>
   );
 }
 
-async function ConfirmationDetails({
+function ConfirmationDetailsClient({
   appointmentId,
 }: {
   appointmentId: string;
 }) {
-  const appointment = await getAppointmentDetails(appointmentId);
+  const {
+    data: appointment,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<AppointmentDetails | null, Error>({
+    queryKey: ["appointmentDetails", appointmentId],
+    queryFn: async () => {
+      const result = await getAppointmentDetailsAction(appointmentId);
+      if (!result) {
+        throw new Error("Agendamento não encontrado.");
+      }
+      return result;
+    },
+    enabled: !!appointmentId,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <p className="text-gray-600">
+              Carregando detalhes do agendamento...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isError) {
+    console.error("Erro ao carregar agendamento com useQuery:", error);
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <p className="text-red-600">
+              Erro ao carregar agendamento:{" "}
+              {error?.message || "Por favor, tente novamente."}
+            </p>
+            <Button asChild className="mt-4">
+              <Link href="/public-booking">Fazer novo agendamento</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!appointment) {
     return (
@@ -70,7 +98,7 @@ async function ConfirmationDetails({
           <CardContent className="pt-6 text-center">
             <p className="text-red-600">Agendamento não encontrado.</p>
             <Button asChild className="mt-4">
-              <Link href="/booking">Fazer novo agendamento</Link>
+              <Link href="/public-booking">Fazer novo agendamento</Link>
             </Button>
           </CardContent>
         </Card>
@@ -130,6 +158,14 @@ async function ConfirmationDetails({
                   </p>
                 </div>
               </div>
+              {appointment.modality && (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600">Modalidade:</span>
+                  <p className="font-medium capitalize">
+                    {appointment.modality}
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center gap-3">
                 <Calendar className="h-5 w-5 text-green-600" />
@@ -159,12 +195,18 @@ async function ConfirmationDetails({
               <li>
                 • Guarde este número do agendamento: #{appointment.id.slice(-8)}
               </li>
+              {appointment.clinicPhoneNumber && (
+                <li>
+                  • Número para contato caso tenha dúvidas ou caso deseje
+                  cancelar: {appointment.clinicPhoneNumber}
+                </li>
+              )}
             </ul>
           </div>
 
           <div className="flex flex-col gap-3 pt-4 sm:flex-row">
             <Button asChild className="flex-1">
-              <Link href="/booking">Fazer Novo Agendamento</Link>
+              <Link href="/public-booking">Fazer Novo Agendamento</Link>
             </Button>
             <Button
               variant="outline"
@@ -180,19 +222,22 @@ async function ConfirmationDetails({
   );
 }
 
-export default function ConfirmationPage({
-  searchParams,
-}: ConfirmationPageProps) {
-  const appointmentId = searchParams.id;
+// >>> CORREÇÃO PRINCIPAL AQUI: Componente com hook useSearchParams <<<
+export default function ConfirmationPage() {
+  // Removeu { searchParams }: ConfirmationPageProps
+  const searchParams = useSearchParams(); // Usa o hook useSearchParams
+  const appointmentId = searchParams.get("id"); // Acessa o ID corretamente
 
   if (!appointmentId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <Card className="w-full max-w-md">
           <CardContent className="pt-6 text-center">
-            <p className="text-red-600">ID do agendamento não fornecido.</p>
+            <p className="text-red-600">
+              ID do agendamento não fornecido na URL.
+            </p>
             <Button asChild className="mt-4">
-              <Link href="/booking">Fazer novo agendamento</Link>
+              <Link href="/public-booking">Fazer novo agendamento</Link>
             </Button>
           </CardContent>
         </Card>

@@ -1,27 +1,33 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+// src/app/(protected)/clinic-form/page.tsx
+// ESTE É UM SERVER COMPONENT, NÃO DEVE TER "use client" AQUI
 
-import ClinicForm from "./_components/form";
+import { headers } from "next/headers"; // Para pegar headers para a sessão
+import { redirect } from "next/navigation"; // Para redirecionar se já tiver clínica
 
-const ClinicFormPage = () => {
+import { auth } from "@/lib/auth"; // Importe sua auth para pegar a sessão no servidor
+
+import ClinicFormModal from "./_components/clinic-form-modal";
+
+const ClinicFormPage = async () => {
+  // Torne a função async
+  const session = await auth.api.getSession({
+    // Busca a sessão no servidor
+    headers: await headers(),
+  });
+
+  // Verifica se o usuário já tem uma clínica vinculada na sessão
+  const userHasClinic = !!session?.user?.clinic?.id; // Assumindo que sua sessão retorna clinic.id
+
+  // Se o usuário JÁ TIVER uma clínica, redireciona imediatamente para o dashboard
+  if (userHasClinic) {
+    redirect("/dashboard"); // Redireciona para o dashboard
+  }
+
+  // Se não tiver clínica, renderiza o modal que permitirá criar uma.
+  // initialIsOpen é true aqui, pois queremos que ele abra.
   return (
     <div>
-      <Dialog open>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Adicionar clínica</DialogTitle>
-            <DialogDescription>
-              Adicione uma clínica para continuar.
-            </DialogDescription>
-          </DialogHeader>
-          <ClinicForm />
-        </DialogContent>
-      </Dialog>
+      <ClinicFormModal initialIsOpen={true} userHasClinic={userHasClinic} />
     </div>
   );
 };

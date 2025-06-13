@@ -1,10 +1,12 @@
+// src/app/(protected)/appointments/table-columns.tsx
+
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import { appointmentsTable } from "@/db/schema"; // Importa a tabela de agendamentos
+import { appointmentsTable } from "@/db/schema";
 
 import AppointmentsTableActions from "./table-actions";
 
@@ -24,6 +26,17 @@ type AppointmentWithRelations = typeof appointmentsTable.$inferSelect & {
 };
 
 export const appointmentsTableColumns: ColumnDef<AppointmentWithRelations>[] = [
+  // <<< NOVO CAMPO: ID do Agendamento >>>
+  {
+    id: "appointment_id_short", // Um ID único para esta coluna na tabela
+    accessorKey: "id", // Acessa a propriedade 'id' do objeto appointment
+    header: "Cód. Agendamento", // Título da coluna na tabela
+    cell: (params) => {
+      const appointment = params.row.original; // Exibe os últimos 8 caracteres do ID, precedidos por um #
+      return `#${appointment.id.slice(-8)}`;
+    },
+  },
+  // <<< FIM DO NOVO CAMPO >>>
   {
     id: "patient",
     accessorKey: "patient.name",
@@ -54,21 +67,18 @@ export const appointmentsTableColumns: ColumnDef<AppointmentWithRelations>[] = [
     accessorKey: "doctor.specialty",
     header: "Especialidade",
   },
-  // <<< NOVO CAMPO: MODALIDADE >>>
   {
-    id: "modality", // ID único para a coluna
-    accessorKey: "modality", // Acessa diretamente a propriedade 'modality' do objeto appointment
-    header: "Modalidade", // Título da coluna na tabela
+    id: "modality",
+    accessorKey: "modality",
+    header: "Modalidade",
     cell: (params) => {
       const appointment = params.row.original;
-      // Capitaliza a primeira letra para melhor apresentação
       return (
         appointment.modality.charAt(0).toUpperCase() +
         appointment.modality.slice(1)
       );
     },
   },
-  // <<< FIM DO NOVO CAMPO >>>
   {
     id: "price",
     accessorKey: "appointmentPriceInCents",
