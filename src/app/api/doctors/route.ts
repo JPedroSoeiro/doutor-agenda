@@ -1,6 +1,4 @@
-// O código que você deveria ter em src/app/api/doctors/route.ts
-// E que faz a filtragem
-import { eq } from "drizzle-orm"; // Importante: 'eq' para a condição de igualdade
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { db } from "@/db";
@@ -9,20 +7,15 @@ import { doctorsTable } from "@/db/schema";
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const clinicId = searchParams.get("clinicId"); // Obtém o clinicId da URL
+    const clinicId = searchParams.get("clinicId");
 
     if (!clinicId) {
-      // Se não for fornecido um clinicId na URL, retorna um erro 400.
-      // Você pode mudar isso para retornar um array vazio ou todos os médicos se for o caso.
-      // Mas para o fluxo de "selecionar clínica -> ver médicos da clínica", um erro 400 é válido
-      // se clinicId for obrigatório.
       return NextResponse.json(
         { message: "Parâmetro clinicId é obrigatório para buscar médicos." },
         { status: 400 },
       );
     }
 
-    // A QUERY QUE FAZ A FILTRAGEM POR CLÍNICA
     const doctors = await db
       .select({
         id: doctorsTable.id,
@@ -31,12 +24,12 @@ export async function GET(request: Request) {
         availableFromWeekDay: doctorsTable.availableFromWeekDay,
         availableToWeekDay: doctorsTable.availableToWeekDay,
         availableFromTime: doctorsTable.availableFromTime,
-        availableToTime: doctorsTable.availableToTime, // Use availableToTime
+        availableToTime: doctorsTable.availableToTime,
         appointmentPriceInCents: doctorsTable.appointmentPriceInCents,
-        is_active: doctorsTable.is_active, // Se você filtra por médicos ativos
+        is_active: doctorsTable.is_active,
       })
       .from(doctorsTable)
-      .where(eq(doctorsTable.clinicId, clinicId)); // <<< AQUI ESTÁ O FILTRO CRÍTICO
+      .where(eq(doctorsTable.clinicId, clinicId));
 
     return NextResponse.json(doctors);
   } catch (error) {

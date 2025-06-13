@@ -2,6 +2,7 @@
 "use client";
 
 import { CalendarDays, Clock, Stethoscope, User, UserPlus } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -49,8 +50,6 @@ interface TimeSlot {
   time: string;
   available: boolean;
 }
-
-// Função de formatação de telefone (coloque-a fora do componente ou em src/helpers/formatters.ts)
 
 export default function BookingPage() {
   const router = useRouter();
@@ -145,11 +144,15 @@ export default function BookingPage() {
     if (!selectedDoctor) return false;
 
     const dayOfWeek = date.getDay();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
     return (
-      date >= today &&
+      date >= tomorrow &&
       dayOfWeek >= selectedDoctor.availableFromWeekDay &&
       dayOfWeek <= selectedDoctor.availableToWeekDay
     );
@@ -227,8 +230,9 @@ export default function BookingPage() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-8 text-center">
-          <h1 className="mb-2 text-3xl font-bold text-gray-900">
+        <div className="mb-8 flex flex-col items-center justify-center text-center">
+          <Image src="/logo.png" alt="Syncli Logo" width={200} height={60} />
+          <h1 className="mb-2 text-2xl font-bold text-gray-900">
             Agendar Consulta
           </h1>
           <p className="text-gray-600">

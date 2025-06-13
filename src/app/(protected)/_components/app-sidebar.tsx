@@ -71,8 +71,8 @@ export function AppSidebar() {
   };
   return (
     <Sidebar>
-      <SidebarHeader className="border-b p-4">
-        <Image src="/logo.svg" alt="Doutor Agenda" width={136} height={28} />
+      <SidebarHeader className="border-b px-4 py-2">
+        <Image src="/logo.png" alt="Doutor Agenda" width={136} height={28} />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
