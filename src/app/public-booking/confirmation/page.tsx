@@ -222,7 +222,7 @@ function ConfirmationDetailsClient({
   );
 }
 
-export default function ConfirmationPage() {
+function ConfirmationPageProps() {
   const searchParams = useSearchParams();
   const appointmentId = searchParams.get("id");
 
@@ -244,4 +244,12 @@ export default function ConfirmationPage() {
   }
 
   return <ConfirmationContent appointmentId={appointmentId} />;
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense fallback={<span>Carregando...</span>}>
+      <ConfirmationPageProps />;
+    </Suspense>
+  );
 }
