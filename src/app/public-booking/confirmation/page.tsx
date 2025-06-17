@@ -222,11 +222,9 @@ function ConfirmationDetailsClient({
   );
 }
 
-// >>> CORREÇÃO PRINCIPAL AQUI: Componente com hook useSearchParams <<<
 export default function ConfirmationPage() {
-  // Removeu { searchParams }: ConfirmationPageProps
-  const searchParams = useSearchParams(); // Usa o hook useSearchParams
-  const appointmentId = searchParams.get("id"); // Acessa o ID corretamente
+  const searchParams = useSearchParams();
+  const appointmentId = searchParams.get("id");
 
   if (!appointmentId) {
     return (

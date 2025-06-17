@@ -1,13 +1,13 @@
 // src/actions/create-clinic.ts
 "use server";
 
-import { revalidatePath } from "next/cache"; // <<< NOVO: Importe revalidatePath
+import { revalidatePath } from "next/cache"; // IMPORTANTE: Para revalidar cache de rotas
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { headers } from "next/headers";
 
 import { db } from "@/db";
-import { clinicsTable, usersToClinicsTable } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { clinicsTable, usersToClinicsTable } from "@/db/schema"; // Importe usersToClinicsTable
+import { auth } from "@/lib/auth"; // Sua biblioteca de autenticação
 
 interface CreateClinicData {
   name: string;
@@ -33,6 +33,8 @@ export async function createClinic(
 
   try {
     const result = await db.transaction(async (tx) => {
+      // Usar transação para atomicidade
+      // 1. Criar a Clínica
       const [newClinic] = await tx
         .insert(clinicsTable)
         .values({
@@ -49,6 +51,7 @@ export async function createClinic(
         throw new Error("Erro ao obter ID da clínica criada.");
       }
 
+      // 2. Vincular a clínica recém-criada ao usuário
       await tx.insert(usersToClinicsTable).values({
         userId: userId,
         clinicId: newClinic.id,
@@ -56,11 +59,12 @@ export async function createClinic(
         updatedAt: new Date(),
       });
 
-      // >>> NOVO: REVALIDAR O CAMINHO DO DASHBOARD E O ROOT PARA ATUALIZAR A SESSÃO <<<
-      // Isso força o Next.js a re-renderizar Server Components que dependem da sessão.
-      revalidatePath("/dashboard"); // Se o usuário vai para o dashboard
-      revalidatePath("/"); // Revalida o root (onde o layout principal está)
-      // <<< FIM DO NOVO <<<
+      // 3. Forçar a revalidação do cache de dados da sessão
+      // Isso é CRUCIAL para que o Next.js saiba que a sessão do usuário mudou
+      // e contenha a nova clinicId.
+      revalidatePath("/dashboard"); // Revalida o dashboard, onde a sessão é lida.
+      revalidatePath("/"); // Revalida o root layout, que também pode ler a sessão.
+      // Se você tiver uma rota "/configuracoes-clinica", revalide-a também.
 
       return { success: true, clinicId: newClinic.id };
     });
