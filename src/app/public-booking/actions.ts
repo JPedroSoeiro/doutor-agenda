@@ -1,11 +1,20 @@
 // src/app/public-booking/actions.ts
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import dayjs from "dayjs";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { and, eq } from "drizzle-orm"; // <<< Essas importações serão usadas
 
 import { db } from "@/db/index";
-import { appointmentsTable, doctorsTable, patientsTable } from "@/db/schema";
+import { appointmentsTable, doctorsTable, patientsTable } from "@/db/schema"; // <<< Essas importações serão usadas
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+const APP_TIMEZONE = "America/Fortaleza"; // Fuso horário da sua aplicação
+
+// >>> INTERFACES NECESSÁRIAS (BookingData, PatientData, AppointmentData) <<<
 interface PatientData {
   name: string;
   email: string;
@@ -24,11 +33,12 @@ interface BookingData {
   patient: PatientData;
   appointment: AppointmentData;
 }
+// >>> FIM DAS INTERFACES <<<
 
 export async function createBooking(data: BookingData) {
   try {
     const result = await db.transaction(async (tx) => {
-      // 1. Fetch doctor and validate (Nenhuma alteração aqui)
+      // 1. Fetch doctor and validate
       const doctor = await tx
         .select({
           id: doctorsTable.id,
@@ -44,19 +54,22 @@ export async function createBooking(data: BookingData) {
         throw new Error("Profissional não encontrado");
       }
 
-      const selectedDoctor = doctor[0];
+      const selectedDoctor = doctor[0]; // <<< selectedDoctor é declarado aqui
 
-      // 2. Check if appointment slot is still available (Nenhuma alteração aqui)
+      // 2. Check if appointment slot is still available
+      const localDateTimeString = `${data.appointment.date}T${data.appointment.time}:00`;
+      const appointmentDateTime = dayjs
+        .tz(localDateTimeString, APP_TIMEZONE)
+        .toDate(); // Sem .utc()
+
       const existingAppointment = await tx
         .select({ id: appointmentsTable.id })
         .from(appointmentsTable)
         .where(
           and(
+            // <<< 'and' e 'eq' são usados aqui
             eq(appointmentsTable.doctorId, data.appointment.doctorId),
-            eq(
-              appointmentsTable.date,
-              new Date(`${data.appointment.date}T${data.appointment.time}:00`),
-            ),
+            eq(appointmentsTable.date, appointmentDateTime),
           ),
         )
         .limit(1);
@@ -65,24 +78,18 @@ export async function createBooking(data: BookingData) {
         throw new Error("Este horário não está mais disponível");
       }
 
-      // >>> ALTERAÇÃO PRINCIPAL: REUTILIZAR PACIENTE OU CRIAR NOVO <<<
-      let patientIdToUse: string;
+      // 3. Reutilizar paciente existente ou criar novo
+      let patientIdToUse: string; // <<< patientIdToUse é declarado aqui
 
-      // Verifica se o paciente já existe pelo email
       const existingPatientRecords = await tx
-        .select({ id: patientsTable.id })
+        .select({ id: patientsTable.id }) // <<< patientsTable é usada aqui
         .from(patientsTable)
         .where(eq(patientsTable.email, data.patient.email))
-        .limit(1); // Limita a 1, pois queremos apenas saber se existe
+        .limit(1);
 
       if (existingPatientRecords.length > 0) {
-        // Se o paciente existe, reutiliza o ID
         patientIdToUse = existingPatientRecords[0].id;
-        // Opcional: Se quiser atualizar o nome/telefone/sexo do paciente existente,
-        // você faria um tx.update(patientsTable).set({...}).where(...) aqui.
-        // Por enquanto, vamos apenas reutilizar o ID.
       } else {
-        // Se o paciente NÃO existe, cria um novo
         const newPatient = await tx
           .insert(patientsTable)
           .values({
@@ -90,7 +97,7 @@ export async function createBooking(data: BookingData) {
             email: data.patient.email,
             phoneNumber: data.patient.phoneNumber,
             sex: data.patient.sex,
-            clinicId: selectedDoctor.clinicId, // Associa à clínica do médico
+            clinicId: selectedDoctor.clinicId,
             createdAt: new Date(),
             updatedAt: new Date(),
           })
@@ -101,17 +108,12 @@ export async function createBooking(data: BookingData) {
         }
         patientIdToUse = newPatient[0].id;
       }
-      // <<< FIM DA ALTERAÇÃO PRINCIPAL >>>
 
-      // 5. Create appointment (agora usando patientIdToUse)
-      const appointmentDateTime = new Date(
-        `${data.appointment.date}T${data.appointment.time}:00`,
-      );
-
+      // 4. Create appointment
       const newAppointment = await tx
         .insert(appointmentsTable)
         .values({
-          patientId: patientIdToUse, // <<< Usa o ID do paciente (existente ou novo)
+          patientId: patientIdToUse,
           doctorId: selectedDoctor.id,
           clinicId: selectedDoctor.clinicId,
           date: appointmentDateTime,

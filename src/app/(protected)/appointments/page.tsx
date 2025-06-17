@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm"; // <<< Garanta que 'asc' está importado
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -30,19 +30,24 @@ const AppointmentsPage = async () => {
     redirect("/clinic-form");
   }
 
+  // Obtenha o clinicId da sessão
+  const userClinicId = session.user.clinic.id;
+
   const [patients, doctors, appointments] = await Promise.all([
     db.query.patientsTable.findMany({
-      where: eq(patientsTable.clinicId, session.user.clinic.id),
+      where: eq(patientsTable.clinicId, userClinicId), // Filtra pacientes pela clínica do usuário
     }),
     db.query.doctorsTable.findMany({
-      where: eq(doctorsTable.clinicId, session.user.clinic.id),
+      where: eq(doctorsTable.clinicId, userClinicId), // Filtra médicos pela clínica do usuário
     }),
     db.query.appointmentsTable.findMany({
-      where: eq(appointmentsTable.clinicId, session.user.clinic.id),
+      where: eq(appointmentsTable.clinicId, userClinicId), // Filtra agendamentos pela clínica do usuário
       with: {
         patient: true,
         doctor: true,
       },
+      // >>> AQUI ESTÁ A ALTERAÇÃO: Adicionar ordenação por data <<<
+      orderBy: asc(appointmentsTable.date), // Ordena os agendamentos pela data em ordem crescente (do mais antigo para o mais recente)
     }),
   ]);
 

@@ -21,6 +21,8 @@ export interface AppointmentDetails {
   doctorSpecialty: string;
   modality: "remoto" | "presencial";
   clinicPhoneNumber: string | null;
+  // >>> CORREÇÃO AQUI: Adicionar clinicAddress ao tipo AppointmentDetails <<<
+  clinicAddress: string | null; // <<< Adicionado clinicAddress
 }
 
 export async function getAppointmentDetailsAction(
@@ -37,8 +39,8 @@ export async function getAppointmentDetailsAction(
         doctorName: doctorsTable.name,
         doctorSpecialty: doctorsTable.specialty,
         modality: appointmentsTable.modality,
-        // CORREÇÃO AQUI: Trocar 'phone_number' por 'phoneNumber' (camelCase)
-        clinicPhoneNumber: clinicsTable.phoneNumber, // <<< CORRIGIDO
+        clinicPhoneNumber: clinicsTable.phoneNumber,
+        clinicAddress: clinicsTable.address, // Seleciona o endereço
       })
       .from(appointmentsTable)
       .innerJoin(
@@ -46,7 +48,7 @@ export async function getAppointmentDetailsAction(
         eq(appointmentsTable.patientId, patientsTable.id),
       )
       .innerJoin(doctorsTable, eq(appointmentsTable.doctorId, doctorsTable.id))
-      .innerJoin(clinicsTable, eq(appointmentsTable.clinicId, clinicsTable.id))
+      .innerJoin(clinicsTable, eq(appointmentsTable.clinicId, clinicsTable.id)) // Garante que clinicsTable está no join
       .where(eq(appointmentsTable.id, appointmentId))
       .limit(1);
 

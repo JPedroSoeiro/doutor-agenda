@@ -2,7 +2,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Calendar, CheckCircle, Clock, Stethoscope, User } from "lucide-react";
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  MapPin,
+  Stethoscope,
+  User,
+} from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation"; // Este import está correto
 import { Suspense } from "react";
@@ -19,11 +26,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-// >>> REMOVIDO: A interface ConfirmationPageProps não é mais necessária <<<
-// interface ConfirmationPageProps {
-//   searchParams: { id?: string } // Linha que foi removida da interface
-// }
 
 function ConfirmationContent({ appointmentId }: { appointmentId: string }) {
   return (
@@ -173,6 +175,16 @@ function ConfirmationDetailsClient({
               </div>
 
               <div className="flex items-center gap-3">
+                    <MapPin className="h-5 w-5 text-green-600" />
+                <div>
+                  <span className="text-sm text-gray-600">
+                    Local da consulta:
+                  </span>
+                  <p className="font-medium">{appointment.clinicAddress}</p> 
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
                 <Clock className="h-5 w-5 text-green-600" />
                 <p className="font-medium">{formattedTime}</p>
               </div>
@@ -201,6 +213,10 @@ function ConfirmationDetailsClient({
                   cancelar: {appointment.clinicPhoneNumber}
                 </li>
               )}
+              <li>
+                • Caso sua consulta seja remota, envie ou aguarde uma mensagem
+                da clinica em seu whatsapp.
+              </li>
             </ul>
           </div>
 
