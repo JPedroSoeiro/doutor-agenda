@@ -6,6 +6,8 @@ import { patientsTable } from "@/db/schema";
 
 import PatientsTableActions from "./table-actions";
 
+import { getSexLabel } from "@/helpers/formatters";
+
 type Patient = typeof patientsTable.$inferSelect;
 
 export const patientsTableColumns: ColumnDef<Patient>[] = [
@@ -40,7 +42,7 @@ export const patientsTableColumns: ColumnDef<Patient>[] = [
     header: "Sexo",
     cell: (params) => {
       const patient = params.row.original;
-      return patient.sex === "male" ? "Masculino" : "Feminino";
+      return getSexLabel(patient.sex);
     },
   },
   {

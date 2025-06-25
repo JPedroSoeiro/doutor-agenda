@@ -11,3 +11,16 @@ export const formatPhoneNumber = (phone: string) => {
 
   return parts.join(" ");
 };
+
+export const getSexLabel = (sex: "male" | "female" | "outro") => {
+  if (sex === "male") {
+    return "Masculino";
+  }
+  if (sex === "female") {
+    return "Feminino";
+  }
+  if (sex === "outro") {
+    return "Outro";
+  }
+  return sex;
+};

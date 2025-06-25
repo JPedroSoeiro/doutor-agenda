@@ -1,3 +1,4 @@
+// src/app/(protected)/doctors/_components/doctor-card.tsx
 "use client";
 
 import {
@@ -38,6 +39,7 @@ import { formatCurrencyInCents } from "@/helpers/currency";
 
 import { getAvailability } from "../_helpers/availability";
 import UpsertDoctorForm from "./upsert-doctor-form";
+import DoctorBlockCalendarModal from "./doctor-block-calendar-modal"; // Importe o modal
 
 interface DoctorCardProps {
   doctor: typeof doctorsTable.$inferSelect;
@@ -46,6 +48,9 @@ interface DoctorCardProps {
 const DoctorCard = ({ doctor }: DoctorCardProps) => {
   const [isUpsertDoctorDialogOpen, setIsUpsertDoctorDialogOpen] =
     useState(false);
+  const [isBlockCalendarDialogOpen, setIsBlockCalendarDialogOpen] =
+    useState(false); // NOVO ESTADO: para controlar o modal de bloqueio
+
   const deleteDoctorAction = useAction(deleteDoctor, {
     onSuccess: () => {
       toast.success("Médico deletado com sucesso.");
@@ -66,30 +71,32 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
   const availability = getAvailability(doctor);
 
   return (
-    <Card>
+    <Card className="flex min-w-0 flex-col">
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Avatar className="h-10 w-10">
+        <div className="flex min-w-0 items-center gap-2">
+          <Avatar className="h-10 w-10 flex-shrink-0">
             <AvatarFallback>{doctorInitials}</AvatarFallback>
           </Avatar>
-          <div>
-            <h3 className="text-sm font-medium">{doctor.name}</h3>
-            <p className="text-muted-foreground text-sm">{doctor.specialty}</p>
+          <div className="min-w-0 flex-grow">
+            <h3 className="truncate text-sm font-medium">{doctor.name}</h3>
+            <p className="text-muted-foreground truncate text-sm">
+              {doctor.specialty}
+            </p>
           </div>
         </div>
       </CardHeader>
       <Separator />
-      <CardContent className="flex flex-col gap-2">
-        <Badge variant="outline">
+      <CardContent className="flex min-w-0 flex-col gap-2">
+        <Badge variant="outline" className="text-wrap">
           <CalendarIcon className="mr-1" />
           {availability.from.format("dddd")} a {availability.to.format("dddd")}
         </Badge>
-        <Badge variant="outline">
+        <Badge variant="outline" className="text-wrap">
           <ClockIcon className="mr-1" />
           {availability.from.format("HH:mm")} as{" "}
           {availability.to.format("HH:mm")}
         </Badge>
-        <Badge variant="outline">
+        <Badge variant="outline" className="text-wrap">
           <DollarSignIcon className="mr-1" />
           {formatCurrencyInCents(doctor.appointmentPriceInCents)}
         </Badge>
@@ -113,10 +120,29 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
             isOpen={isUpsertDoctorDialogOpen}
           />
         </Dialog>
+
+        {/* NOVO: Botão e Modal para Bloquear/Adicionar Dias */}
+        <Dialog
+          open={isBlockCalendarDialogOpen}
+          onOpenChange={setIsBlockCalendarDialogOpen}
+        >
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              Bloquear/Adicionar Dias
+            </Button>
+          </DialogTrigger>
+          <DoctorBlockCalendarModal
+            isOpen={isBlockCalendarDialogOpen}
+            onOpenChange={setIsBlockCalendarDialogOpen}
+            doctor={doctor} // Passa o objeto 'doctor' completo
+          />
+        </Dialog>
+
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="outline" className="w-full">
-              <TrashIcon />
+              <TrashIcon className="mr-2" />
               Deletar profissional
             </Button>
           </AlertDialogTrigger>

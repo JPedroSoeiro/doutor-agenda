@@ -301,6 +301,7 @@ export default function BookingPage() {
                     <SelectContent>
                       <SelectItem value="male">Masculino</SelectItem>
                       <SelectItem value="female">Feminino</SelectItem>
+                      <SelectItem value="outro">Outro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
