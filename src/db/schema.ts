@@ -1,4 +1,7 @@
-import { relations, type Relations } from "drizzle-orm";
+// src/db/schema.ts
+
+// Importe 'relations' do pacote principal "drizzle-orm"
+import { relations } from "drizzle-orm";
 
 import {
   boolean,
@@ -77,7 +80,7 @@ export const verificationsTable = pgTable("verifications", {
   value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at"),
-  updatedAt: timestamp("updated_at"),
+  updatedAt: timestamp("updated_ات"),
 });
 
 export const clinicsTable = pgTable("clinics", {
@@ -162,6 +165,7 @@ export const appointmentsTable = pgTable("appointments", {
     .$onUpdate(() => new Date()),
 });
 
+// NOVA TABELA: blocked_dates para bloqueio de dias por médico
 export const blockedDatesTable = pgTable(
   "blocked_dates",
   {
@@ -186,6 +190,7 @@ export const blockedDatesTable = pgTable(
   },
 );
 
+// NOVA TABELA: ad_hoc_available_dates para disponibilidade excepcional por médico
 export const adHocAvailableDatesTable = pgTable(
   "ad_hoc_available_dates",
   {
@@ -204,7 +209,6 @@ export const adHocAvailableDatesTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (table) => {
-    // Restrição UNIQUE
     return {
       unq: uniqueIndex("ad_hoc_available_date_unique").on(
         table.doctorId,
@@ -214,6 +218,42 @@ export const adHocAvailableDatesTable = pgTable(
   },
 );
 
+// NOVA TABELA: blocked_time_slots para bloquear horários específicos por médico
+export const blockedTimeSlotsTable = pgTable(
+  "blocked_time_slots",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clinicId: uuid("clinic_id")
+      .notNull()
+      .references(() => clinicsTable.id, { onDelete: "cascade" }),
+    doctorId: uuid("doctor_id")
+      .notNull()
+      .references(() => doctorsTable.id, { onDelete: "cascade" }),
+    date: timestamp("date").notNull(), // A data específica do bloqueio (apenas a data, sem a hora)
+    time: text("time").notNull(), // O horário específico do bloqueio (ex: "09:00", "13:30")
+    reason: text("reason"), // Opcional: Motivo do bloqueio do horário
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      unq: uniqueIndex("blocked_time_slot_unique").on(
+        table.doctorId,
+        table.date,
+        table.time,
+      ),
+    };
+  },
+);
+
+// =========================================================================
+// RELATIONS - Definições de Relações (Usando 'any' para os helpers como último recurso)
+// =========================================================================
+
+// Usaremos 'any' para os helpers para contornar o erro de 'Relations'.
+// Se 'relations' der 'not defined', adicione 'import { relations } from "drizzle-orm";' no topo.
 export const usersTableRelations = relations(usersTable, (helpers: any) => ({
   usersToClinics: helpers.many(usersToClinicsTable),
 }));
@@ -251,7 +291,8 @@ export const doctorsTableRelations = relations(
     }),
     appointments: helpers.many(appointmentsTable),
     blockedDates: helpers.many(blockedDatesTable),
-    adHocAvailableDates: helpers.many(adHocAvailableDatesTable), // Adiciona relação
+    adHocAvailableDates: helpers.many(adHocAvailableDatesTable),
+    blockedTimeSlots: helpers.many(blockedTimeSlotsTable), // Adiciona relação
   }),
 );
 
@@ -307,7 +348,21 @@ export const adHocAvailableDatesTableRelations = relations(
     }),
     doctor: helpers.one(doctorsTable, {
       fields: [adHocAvailableDatesTable.doctorId],
-      references: [adHocAvailableDatesTable.id], // Verifique este relacionamento
+      references: [doctorsTable.id],
+    }),
+  }),
+);
+
+export const blockedTimeSlotsTableRelations = relations(
+  blockedTimeSlotsTable,
+  (helpers: any) => ({
+    clinic: helpers.one(clinicsTable, {
+      fields: [blockedTimeSlotsTable.clinicId],
+      references: [clinicsTable.id],
+    }),
+    doctor: helpers.one(doctorsTable, {
+      fields: [blockedTimeSlotsTable.doctorId],
+      references: [doctorsTable.id],
     }),
   }),
 );

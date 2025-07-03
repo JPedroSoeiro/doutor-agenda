@@ -1,3 +1,4 @@
+// src/app/public-booking/page.tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
@@ -6,6 +7,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -44,6 +46,7 @@ interface Doctor {
   availableFromTime: string;
   availableToTime: string;
   appointmentPriceInCents: number;
+  clinicId: string;
 }
 
 interface TimeSlot {
@@ -62,6 +65,11 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
+
+  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+  const [adHocAvailableDates, setAdHocAvailableDates] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [formData, setFormData] = useState({
     name: "",
@@ -110,10 +118,46 @@ export default function BookingPage() {
     setSelectedDoctor(null);
     setSelectedDate(undefined);
     setSelectedTime("");
+    setBlockedDates(new Set());
+    setAdHocAvailableDates(new Set());
   }, [selectedClinic]);
+
+  useEffect(() => {
+    const fetchBlockedAndAdHocDates = async () => {
+      if (!selectedDoctor || !selectedClinic) {
+        setBlockedDates(new Set());
+        setAdHocAvailableDates(new Set());
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/api/blocked-dates?doctorId=${selectedDoctor.id}&clinicId=${selectedClinic.id}`,
+        );
+        if (!response.ok)
+          throw new Error("Falha ao buscar dados de bloqueio/ad-hoc.");
+        const data: { blockedDates: string[]; adHocAvailableDates: string[] } =
+          await response.json();
+        setBlockedDates(new Set(data.blockedDates));
+        setAdHocAvailableDates(new Set(data.adHocAvailableDates));
+      } catch (err: any) {
+        console.error("Erro ao carregar dias bloqueados/ad-hoc:", err);
+        setError("Erro ao carregar a disponibilidade do médico.");
+      }
+    };
+
+    fetchBlockedAndAdHocDates();
+  }, [selectedDoctor, selectedClinic]);
 
   const generateTimeSlots = useCallback(async () => {
     if (!selectedDoctor || !selectedDate) return;
+
+    const formattedSelectedDate = format(selectedDate, "yyyy-MM-dd");
+
+    if (blockedDates.has(formattedSelectedDate)) {
+      setAvailableSlots([]);
+      setSelectedTime("");
+      return;
+    }
 
     try {
       const response = await fetch("/api/available-slots", {
@@ -121,7 +165,7 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           doctorId: selectedDoctor.id,
-          date: selectedDate.toISOString().split("T")[0],
+          date: formattedSelectedDate,
           clinicId: selectedClinic?.id,
         }),
       });
@@ -132,7 +176,7 @@ export default function BookingPage() {
       setError("Erro ao carregar horários disponíveis.");
       console.error("Erro ao carregar horários disponíveis.", err);
     }
-  }, [selectedDoctor, selectedDate, selectedClinic]);
+  }, [selectedDoctor, selectedDate, selectedClinic, blockedDates]);
 
   useEffect(() => {
     if (selectedDoctor && selectedDate) {
@@ -148,14 +192,23 @@ export default function BookingPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    if (date < today) {
+      return false;
+    }
 
-    return (
-      date >= tomorrow &&
+    const formattedDate = format(date, "yyyy-MM-dd");
+
+    if (blockedDates.has(formattedDate)) {
+      return false;
+    }
+
+    const isNormalWorkingDay =
       dayOfWeek >= selectedDoctor.availableFromWeekDay &&
-      dayOfWeek <= selectedDoctor.availableToWeekDay
-    );
+      dayOfWeek <= selectedDoctor.availableToWeekDay;
+
+    const isAdHocAvailable = adHocAvailableDates.has(formattedDate);
+
+    return isNormalWorkingDay || isAdHocAvailable;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -208,7 +261,7 @@ export default function BookingPage() {
         },
         appointment: {
           doctorId: selectedDoctor!.id,
-          date: selectedDate!.toISOString().split("T")[0],
+          date: format(selectedDate!, "yyyy-MM-dd"),
           time: selectedTime,
           modality: formData.modality as "remoto" | "presencial",
         },
@@ -351,7 +404,6 @@ export default function BookingPage() {
                   onValueChange={(value) => {
                     const clinic = clinics.find((c) => c.id === value);
                     setSelectedClinic(clinic || null);
-                    // O useEffect para fetchDoctors já limpa médico, data e hora
                   }}
                 >
                   <SelectTrigger>

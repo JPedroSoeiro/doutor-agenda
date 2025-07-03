@@ -4,8 +4,8 @@ export interface Clinic {
   id: string;
   name: string;
   address?: string | null;
-  phoneNumber?: string; // Opcional aqui, mas obrigatório no DB (notNull)
-  email?: string; // Opcional aqui, mas obrigatório no DB (notNull)
+  phoneNumber?: string;
+  email?: string;
 }
 
 export interface Doctor {

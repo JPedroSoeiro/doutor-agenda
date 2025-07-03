@@ -54,7 +54,9 @@ const PatientsTableActions = ({ patient }: PatientsTableActionsProps) => {
     <>
       <Dialog open={upsertDialogIsOpen} onOpenChange={setUpsertDialogIsOpen}>
         <DropdownMenu>
-          <DropdownMenuTrigger>
+          <DropdownMenuTrigger asChild>
+            {" "}
+            {/* <<< ADICIONADO: asChild aqui */}
             <Button variant="ghost" size="icon">
               <MoreVerticalIcon className="h-4 w-4" />
             </Button>
@@ -67,10 +69,20 @@ const PatientsTableActions = ({ patient }: PatientsTableActionsProps) => {
               Editar
             </DropdownMenuItem>
             <AlertDialog>
+              {/* <<< ATENÇÃO AQUI: AlertDialogTrigger também precisa de asChild */}
+              {/* E o DropdownMenuItem precisa ser o filho direto e ter asChild */}
               <AlertDialogTrigger asChild>
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                  <TrashIcon />
-                  Excluir
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
+                  {" "}
+                  {/* <<< ADICIONADO: asChild aqui */}
+                  {/* O conteúdo do DropdownMenuItem vai para dentro do AlertDiaLogTrigger */}
+                  <button type="button" className="flex w-full items-center">
+                    {" "}
+                    {/* Um botão simples ou span, o DropdownMenuItem vai renderizar como ele */}
+                    <TrashIcon className="mr-2 h-4 w-4" />{" "}
+                    {/* Ícone para a ação */}
+                    Excluir
+                  </button>
                 </DropdownMenuItem>
               </AlertDialogTrigger>
               <AlertDialogContent>

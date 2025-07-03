@@ -1,21 +1,34 @@
-import { and, eq } from "drizzle-orm";
-import { type NextRequest, NextResponse } from "next/server";
+// src/app/api/available-slots/route.ts
+import { db } from "@/db";
+import {
+  appointmentsTable,
+  doctorsTable,
+  blockedTimeSlotsTable,
+} from "@/db/schema";
+import { and, eq, sql } from "drizzle-orm";
+import { NextResponse } from "next/server";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
-import { db } from "@/db/index";
-import { appointmentsTable, doctorsTable } from "@/db/schema";
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-export async function POST(request: NextRequest) {
+const APP_TIMEZONE = "America/Fortaleza";
+const SLOT_INTERVAL_MINUTES = 30; // Intervalo dos slots de agendamento
+
+export async function POST(request: Request) {
+  const { doctorId, date, clinicId } = await request.json();
+
+  if (!doctorId || !date || !clinicId) {
+    return NextResponse.json(
+      { error: "Dados incompletos para buscar horários." },
+      { status: 400 },
+    );
+  }
+
   try {
-    const { doctorId, date } = await request.json();
-
-    if (!doctorId || !date) {
-      return NextResponse.json(
-        { error: "Doctor ID and date are required" },
-        { status: 400 },
-      );
-    }
-
-    // Get doctor's availability
+    // Buscar informações do médico para obter o horário de trabalho
     const doctor = await db
       .select({
         availableFromTime: doctorsTable.availableFromTime,
@@ -26,79 +39,92 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (!doctor.length) {
-      return NextResponse.json({ error: "Doctor not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Médico não encontrado." },
+        { status: 404 },
+      );
     }
 
-    // Get existing appointments for this doctor on this date
-    const startOfDay = new Date(`${date}T00:00:00`);
-    const endOfDay = new Date(`${date}T23:59:59`);
+    const { availableFromTime, availableToTime } = doctor[0];
 
+    // Converter a data para um objeto Day.js no fuso horário da aplicação
+    const targetDate = dayjs.tz(date, APP_TIMEZONE);
+    const targetDateOnly = targetDate.startOf("day").toDate(); // Apenas a data para query do BD
+
+    // Gerar todos os slots possíveis para o dia
+    const allPossibleSlots: { time: string; dateTime: dayjs.Dayjs }[] = [];
+    let currentSlotTime = dayjs.tz(
+      date + "T" + availableFromTime,
+      APP_TIMEZONE,
+    );
+    const endOfDayTime = dayjs.tz(date + "T" + availableToTime, APP_TIMEZONE);
+
+    while (currentSlotTime.isBefore(endOfDayTime)) {
+      // Ignorar slots que já passaram se for o dia atual
+      const now = dayjs().tz(APP_TIMEZONE);
+      if (currentSlotTime.isBefore(now)) {
+        currentSlotTime = currentSlotTime.add(SLOT_INTERVAL_MINUTES, "minute");
+        continue;
+      }
+
+      allPossibleSlots.push({
+        time: currentSlotTime.format("HH:mm"),
+        dateTime: currentSlotTime,
+      });
+      currentSlotTime = currentSlotTime.add(SLOT_INTERVAL_MINUTES, "minute");
+    }
+
+    // Buscar agendamentos existentes para o médico e dia
     const existingAppointments = await db
-      .select({
-        date: appointmentsTable.date,
-      })
+      .select({ date: appointmentsTable.date })
       .from(appointmentsTable)
       .where(
         and(
           eq(appointmentsTable.doctorId, doctorId),
-          and(
-            eq(appointmentsTable.date, startOfDay),
-            eq(appointmentsTable.date, endOfDay),
-          ),
+          sql`DATE(${appointmentsTable.date}) = ${targetDate.format("YYYY-MM-DD")}`, // Comparar apenas a data
+          eq(appointmentsTable.clinicId, clinicId),
+          // Opcional: filtrar apenas agendamentos "ativos" para evitar conflito com cancelados/no_show
+          // eq(appointmentsTable.status, "scheduled")
         ),
       );
 
-    // Generate time slots
-    const slots = generateTimeSlots(
-      doctor[0].availableFromTime,
-      doctor[0].availableToTime,
-      existingAppointments.map((apt) => apt.date),
+    const bookedTimes = new Set(
+      existingAppointments.map((appt) =>
+        dayjs(appt.date).tz(APP_TIMEZONE).format("HH:mm"),
+      ),
     );
 
-    return NextResponse.json(slots);
+    // NOVO: Buscar horários bloqueados específicos para este médico e clínica neste dia
+    const blockedSpecificTimes = await db
+      .select({ time: blockedTimeSlotsTable.time })
+      .from(blockedTimeSlotsTable)
+      .where(
+        and(
+          eq(blockedTimeSlotsTable.doctorId, doctorId),
+          eq(blockedTimeSlotsTable.clinicId, clinicId),
+          eq(blockedTimeSlotsTable.date, targetDateOnly), // Comparar o objeto Date
+        ),
+      );
+    const blockedSlotTimes = new Set(
+      blockedSpecificTimes.map((row) => row.time),
+    );
+
+    // Filtrar slots:
+    // - Remover os já agendados
+    // - Remover os que foram bloqueados especificamente
+    const availableSlots = allPossibleSlots
+      .filter(
+        (slot) =>
+          !bookedTimes.has(slot.time) && !blockedSlotTimes.has(slot.time),
+      )
+      .map((slot) => ({ time: slot.time, available: true }));
+
+    return NextResponse.json(availableSlots);
   } catch (error) {
-    console.error("Error fetching available slots:", error);
+    console.error("Erro ao gerar horários disponíveis:", error);
     return NextResponse.json(
-      { error: "Erro ao buscar horários disponíveis" },
+      { error: "Erro ao carregar horários disponíveis." },
       { status: 500 },
     );
   }
-}
-
-function generateTimeSlots(
-  fromTime: string,
-  toTime: string,
-  bookedTimes: Date[],
-) {
-  const slots = [];
-  const [fromHour, fromMinute] = fromTime.split(":").map(Number);
-  const [toHour, toMinute] = toTime.split(":").map(Number);
-
-  const bookedTimeStrings = bookedTimes.map((date) =>
-    date.toTimeString().substring(0, 5),
-  );
-
-  let currentHour = fromHour;
-  let currentMinute = fromMinute;
-
-  while (
-    currentHour < toHour ||
-    (currentHour === toHour && currentMinute < toMinute)
-  ) {
-    const timeString = `${currentHour.toString().padStart(2, "0")}:${currentMinute.toString().padStart(2, "0")}`;
-
-    slots.push({
-      time: timeString,
-      available: !bookedTimeStrings.includes(timeString),
-    });
-
-    // Increment by 30 minutes
-    currentMinute += 30;
-    if (currentMinute >= 60) {
-      currentMinute = 0;
-      currentHour += 1;
-    }
-  }
-
-  return slots;
 }

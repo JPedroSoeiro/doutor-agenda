@@ -11,7 +11,7 @@ import {
   User,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation"; // Este import está correto
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 import {
@@ -175,12 +175,12 @@ function ConfirmationDetailsClient({
               </div>
 
               <div className="flex items-center gap-3">
-                    <MapPin className="h-5 w-5 text-green-600" />
+                <MapPin className="h-5 w-5 text-green-600" />
                 <div>
                   <span className="text-sm text-gray-600">
                     Local da consulta:
                   </span>
-                  <p className="font-medium">{appointment.clinicAddress}</p> 
+                  <p className="font-medium">{appointment.clinicAddress}</p>
                 </div>
               </div>
 

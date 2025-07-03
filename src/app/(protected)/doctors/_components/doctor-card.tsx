@@ -39,7 +39,7 @@ import { formatCurrencyInCents } from "@/helpers/currency";
 
 import { getAvailability } from "../_helpers/availability";
 import UpsertDoctorForm from "./upsert-doctor-form";
-import DoctorBlockCalendarModal from "./doctor-block-calendar-modal"; // Importe o modal
+import DoctorBlockCalendarModal from "./doctor-block-calendar-modal";
 
 interface DoctorCardProps {
   doctor: typeof doctorsTable.$inferSelect;
@@ -49,7 +49,7 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
   const [isUpsertDoctorDialogOpen, setIsUpsertDoctorDialogOpen] =
     useState(false);
   const [isBlockCalendarDialogOpen, setIsBlockCalendarDialogOpen] =
-    useState(false); // NOVO ESTADO: para controlar o modal de bloqueio
+    useState(false);
 
   const deleteDoctorAction = useAction(deleteDoctor, {
     onSuccess: () => {
@@ -121,7 +121,7 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
           />
         </Dialog>
 
-        {/* NOVO: Botão e Modal para Bloquear/Adicionar Dias */}
+        {/* Botão e Modal para Bloquear/Adicionar Dias/Horários */}
         <Dialog
           open={isBlockCalendarDialogOpen}
           onOpenChange={setIsBlockCalendarDialogOpen}
@@ -129,13 +129,21 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">
               <CalendarIcon className="mr-2 h-4 w-4" />
-              Bloquear/Adicionar Dias
+              Gerenciar Agenda
             </Button>
           </DialogTrigger>
           <DoctorBlockCalendarModal
             isOpen={isBlockCalendarDialogOpen}
             onOpenChange={setIsBlockCalendarDialogOpen}
-            doctor={doctor} // Passa o objeto 'doctor' completo
+            doctor={{
+              id: doctor.id,
+              name: doctor.name,
+              availableFromWeekDay: doctor.availableFromWeekDay,
+              availableToWeekDay: doctor.availableToWeekDay,
+              availableFromTime: doctor.availableFromTime,
+              availableToTime: doctor.availableToTime,
+              clinicId: doctor.clinicId,
+            }}
           />
         </Dialog>
 
@@ -151,10 +159,10 @@ const DoctorCard = ({ doctor }: DoctorCardProps) => {
               <AlertDialogTitle>
                 Tem certeza que deseja deletar esse profissional?
               </AlertDialogTitle>
-              <AlertDialogDescription>
+              <AlertDialogTitle>
                 Essa ação não pode ser revertida. Isso irá deletar o
                 profissional e todas as consultas agendadas.
-              </AlertDialogDescription>
+              </AlertDialogTitle>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
