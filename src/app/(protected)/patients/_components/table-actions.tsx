@@ -1,3 +1,4 @@
+// src/app/(protected)/patients/_components/table-actions.tsx
 import { EditIcon, MoreVerticalIcon, TrashIcon } from "lucide-react";
 import { useAction } from "next-safe-action/hooks";
 import { useState } from "react";
@@ -54,33 +55,40 @@ const PatientsTableActions = ({ patient }: PatientsTableActionsProps) => {
     <>
       <Dialog open={upsertDialogIsOpen} onOpenChange={setUpsertDialogIsOpen}>
         <DropdownMenu>
+          {/* MUDANÇA AQUI:
+              O DropdownMenuTrigger precisa de `asChild`.
+              Em vez de usar seu <Button asChild>, vamos usar um <button> HTML direto
+              dentro do DropdownMenuTrigger. Isso garante que o Trigger
+              esteja recebendo um único elemento para "controlar".
+              O Button de UI é útil para estilos, mas pode complicar a composição com `asChild`.
+          */}
           <DropdownMenuTrigger asChild>
-            {" "}
-            {/* <<< ADICIONADO: asChild aqui */}
-            <Button variant="ghost" size="icon">
+            {/* NOVO: Usar um botão HTML simples e aplicar os estilos do Button manualmente */}
+            <button
+              type="button"
+              className="focus-visible:ring-ring hover:bg-accent hover:text-accent-foreground inline-flex h-9 w-9 items-center justify-center rounded-md p-0 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-1 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50" // Estilos de 'ghost' e 'icon' do seu Button
+              aria-label="Abrir menu de ações do paciente" // Boa prática de acessibilidade
+            >
               <MoreVerticalIcon className="h-4 w-4" />
-            </Button>
+            </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuLabel>{patient.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setUpsertDialogIsOpen(true)}>
-              <EditIcon />
+              <EditIcon className="mr-2 h-4 w-4" />{" "}
+              {/* Adicione mr-2 h-4 w-4 para alinhar com o outro */}
               Editar
             </DropdownMenuItem>
             <AlertDialog>
-              {/* <<< ATENÇÃO AQUI: AlertDialogTrigger também precisa de asChild */}
-              {/* E o DropdownMenuItem precisa ser o filho direto e ter asChild */}
               <AlertDialogTrigger asChild>
+                {/* Esta parte já estava correta na última revisão, mas reafirmo */}
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild>
-                  {" "}
-                  {/* <<< ADICIONADO: asChild aqui */}
-                  {/* O conteúdo do DropdownMenuItem vai para dentro do AlertDiaLogTrigger */}
-                  <button type="button" className="flex w-full items-center">
-                    {" "}
-                    {/* Um botão simples ou span, o DropdownMenuItem vai renderizar como ele */}
-                    <TrashIcon className="mr-2 h-4 w-4" />{" "}
-                    {/* Ícone para a ação */}
+                  <button
+                    type="button"
+                    className="flex w-full items-center text-left"
+                  >
+                    <TrashIcon className="mr-2 h-4 w-4" />
                     Excluir
                   </button>
                 </DropdownMenuItem>

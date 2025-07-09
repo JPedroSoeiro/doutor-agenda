@@ -462,7 +462,6 @@ export default function BookingPage() {
                 </div>
               )}
 
-              {/* Seleção da Data (mostrado apenas se um médico for selecionado) */}
               {selectedDoctor && (
                 <div className="space-y-2">
                   <Label>Data da Consulta *</Label>
@@ -514,7 +513,6 @@ export default function BookingPage() {
             </CardContent>
           </Card>
 
-          {/* Mensagem de Erro para o Usuário */}
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-4">
               <p className="text-sm text-red-600">{error}</p>
