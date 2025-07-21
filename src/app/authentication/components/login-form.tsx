@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +67,14 @@ const LoginForm = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
           <CardHeader>
+            <div className="mb-3 flex flex-col items-center justify-center text-center">
+              <Image
+                src="/logo.png"
+                alt="Syncli Logo"
+                width={200}
+                height={60}
+              />
+            </div>
             <CardTitle>Login</CardTitle>
             <CardDescription>Faça login para continuar.</CardDescription>
           </CardHeader>

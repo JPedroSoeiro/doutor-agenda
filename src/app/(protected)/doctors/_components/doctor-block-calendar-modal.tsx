@@ -24,12 +24,12 @@ import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { getDayJsAvailability } from "../_helpers/availability";
 import dayjs from "dayjs";
-import { doctorsTable } from "@/db/schema"; // Importar doctorsTable para usar $inferSelect
+import { doctorsTable } from "@/db/schema";
 
-// Corrigido: Usar Pick para pegar apenas as propriedades necessárias do doctor
+// CORREÇÃO AQUI: Renomear onOpenChange para onOpenChangeAction
 interface DoctorBlockCalendarModalProps {
   isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
+  onOpenChangeAction: (open: boolean) => void; // <<< RENOMEADO
   doctor: Pick<
     typeof doctorsTable.$inferSelect,
     | "id"
@@ -49,11 +49,10 @@ interface AdminTimeSlot {
 
 export default function DoctorBlockCalendarModal({
   isOpen,
-  onOpenChange,
+  onOpenChangeAction, // <<< RENOMEADO AQUI
   doctor,
 }: DoctorBlockCalendarModalProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  // Corrigido: Usar Date[] ao invés de Set<string> para compatibilidade com react-day-picker modifiers
   const [blockedDates, setBlockedDates] = useState<Date[]>([]);
   const [adHocAvailableDates, setAdHocAvailableDates] = useState<Date[]>([]);
   const [blockedTimeSlots, setBlockedTimeSlots] = useState<Set<string>>(
@@ -62,7 +61,6 @@ export default function DoctorBlockCalendarModal({
   const [reason, setReason] = useState("");
   const [currentDaySlots, setCurrentDaySlots] = useState<AdminTimeSlot[]>([]);
 
-  // Funções de validação e helpers movidas para o topo ou encapsuladas em useCallback
   const isDateBlocked = useCallback(
     (date: Date): boolean => {
       return blockedDates.some(
@@ -105,7 +103,6 @@ export default function DoctorBlockCalendarModal({
             : "Dia desbloqueado com sucesso!",
         );
         fetchBlockedAndAdHocDates();
-        setSelectedDate(undefined);
         setReason("");
       } else {
         toast.error(result.data?.error || "Erro na operação do dia.");
@@ -133,7 +130,6 @@ export default function DoctorBlockCalendarModal({
             : "Disponibilidade removida com sucesso!",
         );
         fetchBlockedAndAdHocDates();
-        setSelectedDate(undefined);
         setReason("");
       } else {
         toast.error(
@@ -184,20 +180,20 @@ export default function DoctorBlockCalendarModal({
 
   const fetchBlockedAndAdHocDates = useCallback(async () => {
     if (!doctor.id || !doctor.clinicId) {
-      setBlockedDates([]); // Zera se não tiver doctor.id ou clinicId
-      setAdHocAvailableDates([]); // Zera se não tiver doctor.id ou clinicId
+      setBlockedDates([]);
+      setAdHocAvailableDates([]);
       return;
     }
     try {
       const response = await fetch(
         `/api/blocked-dates?doctorId=${doctor.id}&clinicId=${doctor.clinicId}`,
+        { cache: "no-store" },
       );
       if (!response.ok)
         throw new Error("Falha ao buscar dias bloqueados/ad-hoc.");
       const data: { blockedDates: string[]; adHocAvailableDates: string[] } =
         await response.json();
 
-      // Corrigido: Mapear para Date[]
       setBlockedDates(data.blockedDates.map((item) => new Date(item)));
       setAdHocAvailableDates(
         data.adHocAvailableDates.map((item) => new Date(item)),
@@ -224,7 +220,6 @@ export default function DoctorBlockCalendarModal({
       try {
         const doctorAvailability = getDayJsAvailability(doctor);
         const allPossibleSlotsForDay = [];
-        // Clonar para não modificar o objeto original e garantir que a data seja a selectedDate
         let currentTime = dayjs(date)
           .hour(doctorAvailability.from.hour())
           .minute(doctorAvailability.from.minute())
@@ -242,6 +237,7 @@ export default function DoctorBlockCalendarModal({
 
         const response = await fetch(
           `/api/blocked-time-slots?doctorId=${doctor.id}&clinicId=${doctor.clinicId}&date=${formattedDate}`,
+          { cache: "no-store" },
         );
         if (!response.ok)
           throw new Error("Falha ao buscar horários bloqueados.");
@@ -281,22 +277,19 @@ export default function DoctorBlockCalendarModal({
     }
   }, [isOpen, doctor.id, doctor.clinicId, fetchBlockedAndAdHocDates]);
 
-  // UseEffect para carregar horários quando selectedDate muda (e também verificar se o dia inteiro está bloqueado)
   useEffect(() => {
     if (selectedDate) {
       if (isDateBlocked(selectedDate)) {
-        // Se o dia inteiro está bloqueado, não exibe horários individuais
         setCurrentDaySlots([]);
         setBlockedTimeSlots(new Set());
       } else {
         fetchBlockedTimeSlotsForSelectedDate(selectedDate);
       }
     } else {
-      // Se nenhuma data selecionada, limpa os slots
       setCurrentDaySlots([]);
       setBlockedTimeSlots(new Set());
     }
-  }, [selectedDate, isDateBlocked, fetchBlockedTimeSlotsForSelectedDate]); // Adicionar isDateBlocked às dependências
+  }, [selectedDate, isDateBlocked, fetchBlockedTimeSlotsForSelectedDate]);
 
   const handleDatesChange = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -314,7 +307,7 @@ export default function DoctorBlockCalendarModal({
       date: formattedDate,
       block: !isDateBlocked(selectedDate),
       reason,
-      clinicId: doctor.clinicId, // Passar clinicId
+      clinicId: doctor.clinicId,
     });
   };
 
@@ -329,7 +322,7 @@ export default function DoctorBlockCalendarModal({
       date: formattedDate,
       available: !isDateAdHocAvailable(selectedDate),
       reason,
-      clinicId: doctor.clinicId, // Passar clinicId
+      clinicId: doctor.clinicId,
     });
   };
 
@@ -350,8 +343,8 @@ export default function DoctorBlockCalendarModal({
   };
 
   const modifiers = {
-    blocked: blockedDates, // blockedDates agora é Date[]
-    adHocAvailable: adHocAvailableDates, // adHocAvailableDates agora é Date[]
+    blocked: blockedDates,
+    adHocAvailable: adHocAvailableDates,
     workingDays: (date: Date) => isDateWithinDoctorAvailability(date),
   };
 

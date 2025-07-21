@@ -5,7 +5,8 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod"; // Importe z do zod
+import { z } from "zod";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -98,11 +99,18 @@ const SignUpForm = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <CardHeader>
+            <div className="mb-3 flex flex-col items-center justify-center text-center">
+              <Image
+                src="/logo.png"
+                alt="Syncli Logo"
+                width={200}
+                height={60}
+              />
+            </div>
             <CardTitle>Criar conta</CardTitle>
             <CardDescription>Crie uma conta para continuar.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Campo Nome */}
             <FormField
               control={form.control}
               name="name"
