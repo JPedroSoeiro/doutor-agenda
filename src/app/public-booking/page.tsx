@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale"; // ADICIONADO: Importar ptBR
+import { toast } from "sonner"; // ADICIONADO: Importar toast
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -165,7 +167,7 @@ export default function BookingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           doctorId: selectedDoctor.id,
-          date: formattedSelectedDate,
+          date: formattedSelectedDate, // CORRIGIDO: Nome da variável
           clinicId: selectedClinic?.id,
         }),
       });
@@ -268,16 +270,36 @@ export default function BookingPage() {
       });
 
       if (result.success) {
+        toast.success("Agendamento realizado com sucesso!"); // ADICIONADO
         router.push(`/public-booking/confirmation?id=${result.appointmentId}`);
       } else {
         setError(result.error || "Erro ao criar agendamento. Tente novamente.");
+        toast.error(result.error || "Erro ao criar agendamento."); // ADICIONADO
       }
     } catch (error) {
       console.error("Erro ao criar agendamento:", error);
       setError("Erro inesperado. Tente novamente.");
+      toast.error("Erro inesperado. Tente novamente."); // ADICIONADO
     } finally {
       setLoading(false);
     }
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const modifiers = {
+    blocked: (date: Date) => blockedDates.has(format(date, "yyyy-MM-dd")),
+    adHocAvailable: (date: Date) =>
+      adHocAvailableDates.has(format(date, "yyyy-MM-dd")),
+    workingDays: (date: Date) => isDateAvailable(date), // Usa a lógica combinada
+    defaultUnavailable: (date: Date) => !isDateAvailable(date) && date >= today, // Dias não disponíveis por padrão (nem no range de dias úteis nem ad-hoc)
+  };
+
+  const modifiersClassNames = {
+    blocked: "bg-red-500 text-white rounded-full",
+    adHocAvailable: "bg-green-500 text-white rounded-full",
+    defaultUnavailable: "bg-red-100 text-red-800",
   };
 
   return (
@@ -472,6 +494,7 @@ export default function BookingPage() {
                       onSelect={setSelectedDate}
                       disabled={(date) => !isDateAvailable(date)}
                       className="rounded-md border"
+                      locale={ptBR} // Adicionado locale
                     />
                   </div>
                 </div>

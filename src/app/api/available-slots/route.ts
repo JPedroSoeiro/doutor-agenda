@@ -4,8 +4,10 @@ import {
   appointmentsTable,
   doctorsTable,
   blockedTimeSlotsTable,
+  blockedDatesTable, // Importar blockedDatesTable
+  adHocAvailableDatesTable, // Importar adHocAvailableDatesTable
 } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm"; // Removido 'or'
 import { NextResponse } from "next/server";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -33,6 +35,8 @@ export async function POST(request: Request) {
       .select({
         availableFromTime: doctorsTable.availableFromTime,
         availableToTime: doctorsTable.availableToTime,
+        availableFromWeekDay: doctorsTable.availableFromWeekDay,
+        availableToWeekDay: doctorsTable.availableToWeekDay,
       })
       .from(doctorsTable)
       .where(eq(doctorsTable.id, doctorId))
@@ -45,85 +49,89 @@ export async function POST(request: Request) {
       );
     }
 
-    const { availableFromTime, availableToTime } = doctor[0];
+    const {
+      availableFromTime,
+      availableToTime,
+      availableFromWeekDay,
+      availableToWeekDay,
+    } = doctor[0];
 
-    // Converter a data para um objeto Day.js no fuso horário da aplicação
-    const targetDate = dayjs.tz(date, APP_TIMEZONE);
-    const targetDateOnly = targetDate.startOf("day").toDate(); // Apenas a data para query do BD
+    // Converter a data de entrada para o fuso horário da aplicação
+    const selectedDay = dayjs.tz(date, APP_TIMEZONE);
 
     // Gerar todos os slots possíveis para o dia
-    const allPossibleSlots: { time: string; dateTime: dayjs.Dayjs }[] = [];
-    let currentSlotTime = dayjs.tz(
-      date + "T" + availableFromTime,
-      APP_TIMEZONE,
-    );
-    const endOfDayTime = dayjs.tz(date + "T" + availableToTime, APP_TIMEZONE);
+    const startOfDayTime = selectedDay
+      .hour(parseInt(availableFromTime.split(":")[0]))
+      .minute(parseInt(availableFromTime.split(":")[1]));
+    const endOfDayTime = selectedDay
+      .hour(parseInt(availableToTime.split(":")[0]))
+      .minute(parseInt(availableToTime.split(":")[1]));
 
-    while (currentSlotTime.isBefore(endOfDayTime)) {
+    let currentTime = startOfDayTime;
+    const allPossibleSlots: string[] = [];
+    while (currentTime.isBefore(endOfDayTime)) {
       // Ignorar slots que já passaram se for o dia atual
       const now = dayjs().tz(APP_TIMEZONE);
-      if (currentSlotTime.isBefore(now)) {
-        currentSlotTime = currentSlotTime.add(SLOT_INTERVAL_MINUTES, "minute");
+      if (selectedDay.isSame(now, "day") && currentTime.isBefore(now)) {
+        currentTime = currentTime.add(SLOT_INTERVAL_MINUTES, "minute");
         continue;
       }
-
-      allPossibleSlots.push({
-        time: currentSlotTime.format("HH:mm"),
-        dateTime: currentSlotTime,
-      });
-      currentSlotTime = currentSlotTime.add(SLOT_INTERVAL_MINUTES, "minute");
+      allPossibleSlots.push(currentTime.format("HH:mm"));
+      currentTime = currentTime.add(SLOT_INTERVAL_MINUTES, "minute");
     }
 
-    // Buscar agendamentos existentes para o médico e dia
+    // Buscar agendamentos existentes
     const existingAppointments = await db
-      .select({ date: appointmentsTable.date })
+      .select({
+        date: appointmentsTable.date, // CORRIGIDO: Selecionar a coluna 'date'
+      })
       .from(appointmentsTable)
       .where(
         and(
           eq(appointmentsTable.doctorId, doctorId),
-          sql`DATE(${appointmentsTable.date}) = ${targetDate.format("YYYY-MM-DD")}`, // Comparar apenas a data
           eq(appointmentsTable.clinicId, clinicId),
-          // Opcional: filtrar apenas agendamentos "ativos" para evitar conflito com cancelados/no_show
-          // eq(appointmentsTable.status, "scheduled")
+          eq(appointmentsTable.date, selectedDay.toDate()), // Tipo corrigido
         ),
       );
-
+    // CORRIGIDO: Mapear a data para HH:mm ao criar o Set
     const bookedTimes = new Set(
       existingAppointments.map((appt) =>
         dayjs(appt.date).tz(APP_TIMEZONE).format("HH:mm"),
       ),
     );
 
-    // NOVO: Buscar horários bloqueados específicos para este médico e clínica neste dia
-    const blockedSpecificTimes = await db
-      .select({ time: blockedTimeSlotsTable.time })
+    // Buscar horários individualmente bloqueados (se um slot está nesta tabela, ele está BLOQUEADO)
+    const blockedIndividualSlots = await db
+      .select({
+        time: blockedTimeSlotsTable.time, // Selecionar o tempo diretamente
+      })
       .from(blockedTimeSlotsTable)
       .where(
         and(
           eq(blockedTimeSlotsTable.doctorId, doctorId),
           eq(blockedTimeSlotsTable.clinicId, clinicId),
-          eq(blockedTimeSlotsTable.date, targetDateOnly), // Comparar o objeto Date
+          eq(blockedTimeSlotsTable.date, selectedDay.toDate()), // Tipo corrigido
         ),
       );
-    const blockedSlotTimes = new Set(
-      blockedSpecificTimes.map((row) => row.time),
+    const explicitlyBlockedTimes = new Set(
+      blockedIndividualSlots.map((s) => s.time),
     );
 
-    // Filtrar slots:
-    // - Remover os já agendados
-    // - Remover os que foram bloqueados especificamente
-    const availableSlots = allPossibleSlots
-      .filter(
-        (slot) =>
-          !bookedTimes.has(slot.time) && !blockedSlotTimes.has(slot.time),
-      )
-      .map((slot) => ({ time: slot.time, available: true }));
+    // Filtrar os horários disponíveis
+    const availableSlotsList = allPossibleSlots
+      .filter((slotTime) => {
+        // Slot não está agendado E não está explicitamente bloqueado individualmente
+        return (
+          !bookedTimes.has(slotTime) && !explicitlyBlockedTimes.has(slotTime)
+        );
+      })
+      .map((time) => ({ time, available: true })); // Mapear para o formato de resposta
 
-    return NextResponse.json(availableSlots);
+    return NextResponse.json(availableSlotsList);
   } catch (error) {
-    console.error("Erro ao gerar horários disponíveis:", error);
+    console.error("Erro ao buscar horários disponíveis:", error);
     return NextResponse.json(
-      { error: "Erro ao carregar horários disponíveis." },
+      { error: "Erro interno do servidor ao buscar horários." },
       { status: 500 },
     );
   }
