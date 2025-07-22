@@ -209,9 +209,13 @@ export default function DoctorBlockCalendarModal({
         });
 
         // Dispara uma re-busca completa para garantir a consistência
-        if (selectedDate) {
-          setRefreshKey((prevKey) => prevKey + 1);
-        }
+        setTimeout(() => {
+          // ADICIONADO: Pequeno atraso antes de re-buscar
+          if (selectedDate) {
+            // Verifica selectedDate novamente, pois é assíncrono
+            setRefreshKey((prevKey) => prevKey + 1);
+          }
+        }, 50); // Atraso de 50ms, pode ser ajustado
       } else {
         toast.error(result.data?.error || "Erro na operação do horário.");
       }
@@ -254,10 +258,7 @@ export default function DoctorBlockCalendarModal({
         ),
       );
     } catch (err: unknown) {
-      console.error(
-        "Erro ao carregar dias bloqueados/ad-hoc para o admin:",
-        err,
-      );
+      console.error("Erro ao carregar dias bloqueados/ad-hoc para o admin:");
       toast.error("Erro ao carregar dias de agenda para o médico.");
     }
   }, [doctor.id, doctor.clinicId]);
